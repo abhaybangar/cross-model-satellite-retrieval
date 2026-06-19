@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PS11 Optical Search Dashboard</title>
+  
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    :root {
+      --bg-primary: #0b0f19;
+      --bg-secondary: #111827;
+      --card-bg: rgba(17, 24, 39, 0.7);
+      --accent: #4f46e5;
+      --accent-hover: #4338ca;
+      --accent-light: rgba(79, 70, 229, 0.15);
+      --accent-glow: rgba(79, 70, 229, 0.4);
+      --success: #10b981;
+      --success-light: rgba(16, 185, 129, 0.15);
+      --error: #ef4444;
+      --error-light: rgba(239, 68, 68, 0.15);
+      --text-primary: #f9fafb;
+      --text-secondary: #9ca3af;
+      --text-muted: #6b7280;
+      --border: rgba(255, 255, 255, 0.07);
+      --border-hover: rgba(255, 255, 255, 0.15);
+      
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      
+      --transition-fast: 0.15s ease;
+      --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-primary);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(79, 70, 229, 0.08) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(6, 182, 212, 0.05) 0px, transparent 50%);
+      background-attachment: fixed;
+      color: var(--text-primary);
+      min-height: 100vh;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem;
+    }
+
+    /* Header Styling */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 3rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-icon {
+      background: linear-gradient(135deg, var(--accent), #06b6d4);
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 15px var(--accent-glow);
+    }
+
+    .brand-icon i {
+      color: white;
+      font-size: 1.2rem;
+    }
+
+    .brand-text h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      background: linear-gradient(to right, #ffffff, #d1d5db);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-text p {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    .system-status {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 0.5rem 1rem;
+      border-radius: 2rem;
+      border: 1px solid var(--border);
+      font-size: 0.8rem;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+
+    /* Layout Columns */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 2.5rem;
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Card Panels */
+    .panel {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 2rem;
+      box-shadow: var(--shadow-xl);
+      transition: border-color var(--transition-normal);
+    }
+
+    .panel:hover {
+      border-color: var(--border-hover);
+    }
+
+    .panel-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .panel-title i {
+      color: var(--accent);
+    }
+
+    /* Dropzone Styling */
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: 0.75rem;
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.01);
+      transition: all var(--transition-normal);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 200px;
+    }
+
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--accent);
+      background: var(--accent-light);
+      box-shadow: 0 0 15px rgba(79, 70, 229, 0.1);
+    }
+
+    .dropzone-icon {
+      font-size: 2.5rem;
+      color: var(--text-secondary);
+      margin-bottom: 1rem;
+      transition: transform var(--transition-normal) , color var(--transition-normal);
+    }
+
+    .dropzone:hover .dropzone-icon {
+      transform: translateY(-4px);
+      color: var(--accent);
+    }
+
+    .dropzone-text {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 0.25rem;
+    }
+
+    .dropzone-subtext {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .file-input {
+      display: none;
+    }
+
+    /* Selected File Preview */
+    .preview-container {
+      width: 100%;
+      margin-top: 1rem;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .image-preview {
+      width: 100%;
+      max-height: 220px;
+      object-fit: contain;
+      border-radius: 0.5rem;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-md);
+      background: #000;
+    }
+
+    .tiff-placeholder {
+      width: 100%;
+      height: 220px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      color: var(--text-secondary);
+    }
+
+    .tiff-placeholder i {
+      font-size: 3rem;
+      color: var(--accent);
+    }
+
+    .tiff-placeholder span {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .tiff-placeholder .tiff-sub {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .file-details {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.5rem;
+      border: 1px solid var(--border);
+      font-size: 0.8rem;
+    }
+
+    .file-name {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 180px;
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .remove-file-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 0.25rem;
+      border-radius: 0.25rem;
+      transition: all var(--transition-fast);
+    }
+
+    .remove-file-btn:hover {
+      color: var(--error);
+      background: var(--error-light);
+    }
+
+    /* Actions Button */
+    .action-btn {
+      width: 100%;
+      background: linear-gradient(135deg, var(--accent), #6366f1);
+      color: white;
+      border: none;
+      border-radius: 0.5rem;
+      padding: 0.85rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-top: 1.5rem;
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+      transition: all var(--transition-normal);
+    }
+
+    .action-btn:hover {
+      background: linear-gradient(135deg, var(--accent-hover), var(--accent));
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(79, 70, 229, 0.4);
+    }
+
+    .action-btn:active {
+      transform: translateY(1px);
+    }
+
+    .action-btn:disabled {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-muted);
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
+    }
+
+    /* Search Status/Errors */
+    .status-msg {
+      margin-top: 1rem;
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      font-size: 0.85rem;
+      display: none;
+      align-items: center;
+      gap: 0.75rem;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .status-msg.loading {
+      display: flex;
+      background: var(--accent-light);
+      border: 1px solid rgba(79, 70, 229, 0.25);
+      color: #a5b4fc;
+    }
+
+    .status-msg.error {
+      display: flex;
+      background: var(--error-light);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      color: #fca5a5;
+    }
+
+    .spinner {
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      border-left-color: var(--accent);
+      border-radius: 50%;
+      width: 1rem;
+      height: 1rem;
+      animation: spin 0.8s linear infinite;
+    }
+
+    /* Results Panel */
+    .results-container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .results-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 380px;
+      border: 2px dashed var(--border);
+      border-radius: 0.75rem;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 2rem;
+    }
+
+    .results-placeholder i {
+      font-size: 3rem;
+      margin-bottom: 1.5rem;
+      color: rgba(255, 255, 255, 0.05);
+    }
+
+    .results-placeholder p {
+      font-size: 0.95rem;
+      max-width: 300px;
+    }
+
+    .results-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .results-info {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    .results-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 1.5rem;
+      list-style: none;
+    }
+
+    /* Card Details */
+    .result-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: all var(--transition-normal);
+      position: relative;
+    }
+
+    .result-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--border-hover);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .card-rank {
+      position: absolute;
+      top: 0.75rem;
+      left: 0.75rem;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      width: 1.75rem;
+      height: 1.75rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      z-index: 10;
+    }
+
+    .card-score-badge {
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      background: var(--success);
+      color: white;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      z-index: 10;
+      box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+    }
+
+    .card-img-wrapper {
+      position: relative;
+      width: 100%;
+      height: 190px;
+      overflow: hidden;
+      background: #090d16;
+      cursor: zoom-in;
+    }
+
+    .card-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform var(--transition-normal);
+    }
+
+    .result-card:hover .card-img {
+      transform: scale(1.05);
+    }
+
+    .card-hover-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity var(--transition-fast);
+    }
+
+    .card-img-wrapper:hover .card-hover-overlay {
+      opacity: 1;
+    }
+
+    .card-hover-overlay i {
+      color: white;
+      font-size: 1.5rem;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+    }
+
+    .card-content {
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      flex-grow: 1;
+      border-top: 1px solid var(--border);
+    }
+
+    .card-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-meta {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* Modal Viewer */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(7, 10, 18, 0.95);
+      backdrop-filter: blur(10px);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity var(--transition-normal);
+    }
+
+    .modal.show {
+      display: flex;
+      opacity: 1;
+    }
+
+    .modal-container {
+      position: relative;
+      max-width: 90%;
+      max-height: 85%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .modal-img {
+      max-width: 100%;
+      max-height: 70vh;
+      object-fit: contain;
+      border-radius: 0.5rem;
+      border: 1px solid var(--border);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-title {
+      margin-top: 1rem;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      text-align: center;
+    }
+
+    .modal-score {
+      font-size: 0.85rem;
+      color: var(--success);
+      font-weight: 500;
+      margin-top: 0.25rem;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: -3rem;
+      right: 0;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      color: white;
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 1.1rem;
+      transition: all var(--transition-fast);
+    }
+
+    .modal-close:hover {
+      background: var(--error-light);
+      color: var(--error);
+      border-color: rgba(239, 68, 68, 0.2);
+    }
+
+    /* Keyframes */
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- Top Header -->
+    <header>
+      <div class="brand">
+        <div class="brand-icon">
+          <i class="fa-solid fa-satellite-dish"></i>
+        </div>
+        <div class="brand-text">
+          <h1>Optical-to-SAR Image Search</h1>
+          <p>DINOv2 Deep Feature Retrieval Engine</p>
+        </div>
+      </div>
+      
+      <div class="system-status">
+        <div class="status-dot"></div>
+        <span>Online (Port 5000)</span>
+      </div>
+    </header>
+
+    <!-- Main Dashboard -->
+    <div class="dashboard-grid">
+      
+      <!-- Left side: Upload & Parameters -->
+      <div class="panel">
+        <div class="panel-title">
+          <i class="fa-solid fa-upload"></i>
+          <h2>Input Optical Query</h2>
+        </div>
+        
+        <!-- Drag & Drop Zone -->
+        <div class="dropzone" id="dropzone" onclick="triggerFileInput()">
+          <div id="dropzonePrompt" class="dropzone-content">
+            <i class="fa-regular fa-image dropzone-icon"></i>
+            <p class="dropzone-text">Drag & drop your optical image</p>
+            <p class="dropzone-subtext">or click to browse local files</p>
+          </div>
+          
+          <input type="file" id="fileInput" class="file-input" accept="image/*">
+          
+          <!-- Selected Image Preview -->
+          <div class="preview-container" id="previewContainer">
+            <img id="localPreview" class="image-preview" src="#" alt="Query preview">
+            <div id="tiffPreviewPlaceholder" class="tiff-placeholder hidden">
+              <i class="fa-solid fa-file-image"></i>
+              <span>TIFF Image Format</span>
+              <span class="tiff-sub">No browser preview, ready to search</span>
+            </div>
+            <div class="file-details">
+              <span class="file-name" id="fileName">image.png</span>
+              <button class="remove-file-btn" onclick="removeSelectedFile(event)" title="Remove image">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Search button -->
+        <button class="action-btn" id="searchBtn" onclick="executeSearch()" disabled>
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <span>Retrieve Matches</span>
+        </button>
+
+        <!-- Status Messaging -->
+        <div class="status-msg loading" id="statusMsg">
+          <div class="spinner"></div>
+          <span id="statusMsgText">Uploading and matching...</span>
+        </div>
+        
+        <div class="status-msg error" id="errorMsg">
+          <i class="fa-solid fa-circle-exclamation"></i>
+          <span id="errorMsgText">An error occurred.</span>
+        </div>
+      </div>
+
+      <!-- Right side: Search Results -->
+      <div class="panel" style="min-height: 480px;">
+        <div class="results-container">
+          
+          <!-- Before Search placeholder -->
+          <div class="results-placeholder" id="resultsPlaceholder">
+            <i class="fa-regular fa-folder-open"></i>
+            <h3>No Active Query</h3>
+            <p>Upload an optical image and click retrieve to search the SAR satellite database.</p>
+          </div>
+
+          <!-- Dynamic Results Container -->
+          <div class="hidden" id="resultsContent">
+            <div class="results-header">
+              <div class="panel-title" style="margin-bottom: 0;">
+                <i class="fa-solid fa-circle-nodes"></i>
+                <h2>SAR Retrieval Results</h2>
+              </div>
+              <span class="results-info" id="resultsInfo">Found 5 matches</span>
+            </div>
+
+            <!-- List of Results -->
+            <ul class="results-grid" id="resultsGrid">
+              <!-- Cards dynamically inserted here -->
+            </ul>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- High-resolution Image Modal -->
+  <div class="modal" id="imageModal" onclick="closeModal()">
+    <div class="modal-container" onclick="event.stopPropagation()">
+      <button class="modal-close" onclick="closeModal()">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <img id="modalImg" class="modal-img" src="" alt="Full preview">
+      <h3 id="modalTitle" class="modal-title">sar_image.png</h3>
+      <span id="modalScore" class="modal-score">Match Score: 98.40%</span>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script>
+    // Drag and drop handling
+    const dropzone = document.getElementById("dropzone");
+    const fileInput = document.getElementById("fileInput");
+    const dropzonePrompt = document.getElementById("dropzonePrompt");
+    const previewContainer = document.getElementById("previewContainer");
+    const localPreview = document.getElementById("localPreview");
+    const fileName = document.getElementById("fileName");
+    const searchBtn = document.getElementById("searchBtn");
+    const statusMsg = document.getElementById("statusMsg");
+    const errorMsg = document.getElementById("errorMsg");
+    const resultsPlaceholder = document.getElementById("resultsPlaceholder");
+    const resultsContent = document.getElementById("resultsContent");
+    const resultsGrid = document.getElementById("resultsGrid");
+    const resultsInfo = document.getElementById("resultsInfo");
+    
+    // Modal items
+    const imageModal = document.getElementById("imageModal");
+    const modalImg = document.getElementById("modalImg");
+    const modalTitle = document.getElementById("modalTitle");
+    const modalScore = document.getElementById("modalScore");
+
+    let selectedFile = null;
+
+    // Prevent default drag behaviors
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      dropzone.addEventListener(eventName, preventDefaults, false);
+      document.body.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    // Highlight drop zone
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropzone.addEventListener(eventName, () => dropzone.classList.add('dragover'), false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropzone.addEventListener(eventName, () => dropzone.classList.remove('dragover'), false);
+    });
+
+    // Handle dropped files
+    dropzone.addEventListener('drop', (e) => {
+      const dt = e.dataTransfer;
+      const files = dt.files;
+      if (files.length) {
+        handleFileSelect(files[0]);
+      }
+    });
+
+    function triggerFileInput() {
+      if (!selectedFile) {
+        fileInput.click();
+      }
+    }
+
+    fileInput.addEventListener("change", (e) => {
+      if (e.target.files.length) {
+        handleFileSelect(e.target.files[0]);
+      }
+    });
+
+    function handleFileSelect(file) {
+      const isTiff = file.name.toLowerCase().endsWith('.tif') || file.name.toLowerCase().endsWith('.tiff') || file.type === 'image/tiff' || file.type === 'image/x-tiff';
+      const isImage = file.type.startsWith('image/') || isTiff;
+      
+      if (!isImage) {
+        showError("Invalid file type. Please upload an image file.");
+        return;
+      }
+      
+      selectedFile = file;
+      fileName.textContent = file.name;
+      
+      const tiffPlaceholder = document.getElementById("tiffPreviewPlaceholder");
+      
+      if (isTiff) {
+        // Display TIFF placeholder instead of img tag
+        localPreview.classList.add("hidden");
+        if (tiffPlaceholder) tiffPlaceholder.classList.remove("hidden");
+        dropzonePrompt.classList.add("hidden");
+        previewContainer.style.display = "flex";
+        searchBtn.disabled = false;
+        clearError();
+      } else {
+        // Standard image rendering
+        if (tiffPlaceholder) tiffPlaceholder.classList.add("hidden");
+        localPreview.classList.remove("hidden");
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          localPreview.src = e.target.result;
+          dropzonePrompt.classList.add("hidden");
+          previewContainer.style.display = "flex";
+          searchBtn.disabled = false;
+          clearError();
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function removeSelectedFile(event) {
+      event.stopPropagation();
+      selectedFile = null;
+      fileInput.value = "";
+      localPreview.src = "#";
+      localPreview.classList.remove("hidden");
+      const tiffPlaceholder = document.getElementById("tiffPreviewPlaceholder");
+      if (tiffPlaceholder) tiffPlaceholder.classList.add("hidden");
+      previewContainer.style.display = "none";
+      dropzonePrompt.classList.remove("hidden");
+      searchBtn.disabled = true;
+      clearError();
+    }
+
+    function showStatus(text) {
+      statusMsg.classList.add("loading");
+      document.getElementById("statusMsgText").textContent = text;
+      errorMsg.classList.remove("error");
+    }
+
+    function hideStatus() {
+      statusMsg.classList.remove("loading");
+    }
+
+    function showError(text) {
+      hideStatus();
+      errorMsg.classList.add("error");
+      document.getElementById("errorMsgText").textContent = text;
+    }
+
+    function clearError() {
+      errorMsg.classList.remove("error");
+    }
+
+    async function executeSearch() {
+      if (!selectedFile) return;
+
+      showStatus("Uploading query and searching SAR gallery...");
+      searchBtn.disabled = true;
+      clearError();
+
+      const formData = new FormData();
+      formData.append("image", selectedFile);
+
+      try {
+        // Use relative path for deployment ease
+        const response = await axios.post("/api/search", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+
+        hideStatus();
+        renderResults(response.data);
+      } catch (err) {
+        let msg = "Network error while connecting to search API.";
+        if (err.response && err.response.data) {
+          msg = err.response.data.error || err.response.data.message || msg;
+        } else if (err.message) {
+          msg = err.message;
+        }
+        showError(msg);
+      } finally {
+        searchBtn.disabled = false;
+      }
+    }
+
+    function renderResults(data) {
+      resultsGrid.innerHTML = "";
+      const results = data.results || [];
+      resultsInfo.textContent = `Found ${results.length} matches`;
+
+      if (results.length === 0) {
+        resultsPlaceholder.classList.remove("hidden");
+        resultsContent.classList.add("hidden");
+        return;
+      }
+
+      resultsPlaceholder.classList.add("hidden");
+      resultsContent.classList.remove("hidden");
+
+      results.forEach((item, index) => {
+        const scorePct = (item.score * 100).toFixed(2);
+        
+        // Extract filename from relative path (e.g. sar/img.png -> img.png)
+        const displayFilename = item.filename.split('/').pop();
+        
+        const cardLi = document.createElement("li");
+        cardLi.className = "result-card";
+        
+        // Note: Using relative path to serve images
+        const imageSrc = `/image?path=${encodeURIComponent(item.filename)}`;
+        
+        cardLi.innerHTML = `
+          <div class="card-rank">${index + 1}</div>
+          <div class="card-score-badge">${scorePct}%</div>
+          <div class="card-img-wrapper" onclick="openModal('${imageSrc}', '${displayFilename}', '${scorePct}%')">
+            <img class="card-img" src="${imageSrc}" alt="${displayFilename}" loading="lazy">
+            <div class="card-hover-overlay">
+              <i class="fa-solid fa-magnifying-glass-plus"></i>
+            </div>
+          </div>
+          <div class="card-content">
+            <span class="card-title" title="${item.filename}">${displayFilename}</span>
+            <div class="card-meta">
+              <span>Path: ${item.filename}</span>
+            </div>
+          </div>
+        `;
+        resultsGrid.appendChild(cardLi);
+      });
+    }
+
+    function openModal(imgSrc, name, score) {
+      modalImg.src = imgSrc;
+      modalTitle.textContent = name;
+      modalScore.textContent = `Match Similarity: ${score}`;
+      imageModal.classList.add("show");
+    }
+
+    function closeModal() {
+      imageModal.classList.remove("show");
+    }
+
+    // Close modal on escape key
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        closeModal();
+      }
+    });
+  </script>
+</body>
+</html>

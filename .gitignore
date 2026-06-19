@@ -1,0 +1,14 @@
+node_modules/
+frontend/node_modules/
+backend/node_modules/
+backend/uploads/
+backend/cache/
+.env
+
+venv/
+__pycache__/
+*.pyc
+.env
+embeddings.npy
+faiss_index.bin
+dataset/**/*

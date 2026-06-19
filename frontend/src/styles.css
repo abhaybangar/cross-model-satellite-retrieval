@@ -1,0 +1,78 @@
+.app-shell {
+  max-width: 980px;
+  margin: 1rem auto;
+  padding: 1rem;
+  font-family: Arial, sans-serif;
+  color: #20232a;
+}
+
+header {
+  margin-bottom: 1.5rem;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 2rem;
+}
+
+.upload-panel {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid #d8d8d8;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.upload-panel button {
+  width: fit-content;
+  padding: 0.75rem 1.25rem;
+  font-size: 1rem;
+  background: #0070f3;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.upload-panel button:hover {
+  background: #0056c2;
+}
+
+.results-panel {
+  margin-top: 1.5rem;
+}
+
+.results-panel ul {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.results-panel li {
+  padding: 1rem;
+  border: 1px solid #d8d8d8;
+  border-radius: 12px;
+  display: grid;
+  gap: 1rem;
+}
+
+.results-panel li div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.results-panel img {
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+.status {
+  color: #0a6c2d;
+}
+
+.error {
+  color: #b00020;
+}

@@ -1,0 +1,11 @@
+{
+  "name": "ps11-proto",
+  "version": "0.1.0",
+  "private": true,
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "scripts": {
+    "dev": "concurrently \"cd backend && npm start\" \"cd frontend && npm start\""
+  }
+}
