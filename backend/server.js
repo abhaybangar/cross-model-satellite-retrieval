@@ -3,7 +3,7 @@ const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
-const { spawn } = require("child_process");
+const { spawn, exec } = require("child_process");
 const os = require("os");
 const mongoose = require("mongoose");
 const QueryLog = require("./models/QueryLog");
@@ -73,15 +73,62 @@ app.post("/api/search", upload.single("image"), async (req, res) => {
 
   child.on("close", async (code) => {
     try {
-      if (req.file && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
-
       if (code !== 0) {
+        if (req.file && fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
         return res.status(500).json({ error: stderr || `Python script exited with code ${code}` });
       }
 
       const result = parseJsonFromOutput(stdout);
+
+      // Convert query image to base64 preview if it is TIFF
+      const ext = path.extname(req.file.path).toLowerCase();
+      let queryPreview = null;
+      if (ext === ".tif" || ext === ".tiff") {
+        const uniqueName = `query_preview_${Date.now()}.png`;
+        const tempPath = path.join(tempDir, uniqueName);
+        
+        const pythonConvert = spawn(PYTHON_EXEC, [
+          "-c",
+          `
+from PIL import Image
+import sys
+try:
+    img = Image.open(sys.argv[1]).convert('RGB')
+    img.save(sys.argv[2], 'PNG')
+    print('OK')
+except Exception as e:
+    print(f'ERROR: {e}', file=sys.stderr)
+    sys.exit(1)
+`,
+          req.file.path,
+          tempPath,
+        ]);
+        
+        await new Promise((resolve) => {
+          pythonConvert.on("close", (convertCode) => {
+            if (convertCode === 0 && fs.existsSync(tempPath)) {
+              try {
+                const fileBuffer = fs.readFileSync(tempPath);
+                queryPreview = `data:image/png;base64,${fileBuffer.toString("base64")}`;
+                fs.unlinkSync(tempPath);
+              } catch (e) {
+                console.error("Read temp file error:", e);
+              }
+            }
+            resolve();
+          });
+        });
+      }
+
+      if (req.file && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+
+      if (queryPreview) {
+        result.queryPreview = queryPreview;
+      }
 
       if (mongoose.connection.readyState === 1) {
         const log = new QueryLog({
@@ -186,4 +233,10 @@ except Exception as e:
 
 app.listen(PORT, () => {
   console.log(`Backend is running on http://localhost:${PORT}`);
+  // Automatically open browser on startup
+  const url = `http://localhost:${PORT}`;
+  const startCmd = process.platform === "win32" ? `start ${url}` : process.platform === "darwin" ? `open ${url}` : `xdg-open ${url}`;
+  exec(startCmd, (err) => {
+    if (err) console.error("Failed to open browser:", err);
+  });
 });

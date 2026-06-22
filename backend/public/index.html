@@ -643,6 +643,86 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
+    /* Stats Panel */
+    .stats-panel {
+      margin-top: 1rem;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      padding: 0.75rem 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      animation: fadeIn 0.3s ease;
+    }
+    
+    .stats-time {
+      font-family: monospace;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--accent);
+      background: rgba(79, 70, 229, 0.1);
+      padding: 0.2rem 0.5rem;
+      border-radius: 0.25rem;
+      border: 1px solid rgba(79, 70, 229, 0.2);
+    }
+
+    /* Radar Animation */
+    .radar-container {
+      position: relative;
+      width: 140px;
+      height: 140px;
+      margin-bottom: 1.5rem;
+      border-radius: 50%;
+      border: 2px solid rgba(79, 70, 229, 0.2);
+      background: radial-gradient(circle, rgba(79, 70, 229, 0.05) 0%, rgba(11, 15, 25, 0.8) 100%);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .radar-sweep {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 200%;
+      height: 200%;
+      background: conic-gradient(from 0deg at 50% 50%, rgba(79, 70, 229, 0.4) 0deg, rgba(79, 70, 229, 0) 90deg);
+      transform-origin: 50% 50%;
+      animation: radar-sweep 2s linear infinite;
+      transform: translate(-25%, -25%);
+    }
+    
+    .radar-center-icon {
+      position: relative;
+      z-index: 10;
+      font-size: 2.2rem;
+      color: var(--text-primary);
+      animation: pulse-icon 2s ease-in-out infinite;
+    }
+    
+    @keyframes radar-sweep {
+      from {
+        transform: translate(-25%, -25%) rotate(0deg);
+      }
+      to {
+        transform: translate(-25%, -25%) rotate(360deg);
+      }
+    }
+    
+    @keyframes pulse-icon {
+      0%, 100% {
+        transform: scale(1);
+        text-shadow: 0 0 10px rgba(79, 70, 229, 0.5);
+      }
+      50% {
+        transform: scale(1.1);
+        text-shadow: 0 0 20px rgba(79, 70, 229, 0.9);
+      }
+    }
+
     .hidden {
       display: none !important;
     }
@@ -714,14 +794,20 @@
         </button>
 
         <!-- Status Messaging -->
-        <div class="status-msg loading" id="statusMsg">
+        <div class="status-msg" id="statusMsg">
           <div class="spinner"></div>
           <span id="statusMsgText">Uploading and matching...</span>
         </div>
         
-        <div class="status-msg error" id="errorMsg">
+        <div class="status-msg" id="errorMsg">
           <i class="fa-solid fa-circle-exclamation"></i>
           <span id="errorMsgText">An error occurred.</span>
+        </div>
+
+        <!-- Stats Panel (Timer) -->
+        <div id="statsPanel" class="stats-panel hidden">
+          <span id="statsStatusText">Status: Idle</span>
+          <span id="statsTimerText" class="stats-time">0.000s</span>
         </div>
       </div>
 
@@ -734,6 +820,16 @@
             <i class="fa-regular fa-folder-open"></i>
             <h3>No Active Query</h3>
             <p>Upload an optical image and click retrieve to search the SAR satellite database.</p>
+          </div>
+
+          <!-- Radar Scanning Animation -->
+          <div id="radarScanning" class="results-placeholder hidden">
+            <div class="radar-container">
+              <div class="radar-sweep"></div>
+              <i class="fa-solid fa-satellite-dish radar-center-icon"></i>
+            </div>
+            <h3>Scanning SAR Database...</h3>
+            <p>Matching feature embeddings via DINOv2 engine.</p>
           </div>
 
           <!-- Dynamic Results Container -->
@@ -794,6 +890,8 @@
     const modalScore = document.getElementById("modalScore");
 
     let selectedFile = null;
+    let timerInterval = null;
+    let startTime = 0;
 
     // Prevent default drag behaviors
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -887,6 +985,8 @@
       dropzonePrompt.classList.remove("hidden");
       searchBtn.disabled = true;
       clearError();
+      document.getElementById("statsPanel").classList.add("hidden");
+      if (timerInterval) clearInterval(timerInterval);
     }
 
     function showStatus(text) {
@@ -916,6 +1016,27 @@
       searchBtn.disabled = true;
       clearError();
 
+      // Show radar animation and hide before-search and completed results panels
+      document.getElementById("radarScanning").classList.remove("hidden");
+      resultsPlaceholder.classList.add("hidden");
+      resultsContent.classList.add("hidden");
+
+      // Setup stats panel & timer
+      const statsPanel = document.getElementById("statsPanel");
+      const statsStatusText = document.getElementById("statsStatusText");
+      const statsTimerText = document.getElementById("statsTimerText");
+      
+      statsPanel.classList.remove("hidden");
+      statsStatusText.textContent = "Status: Scanning...";
+      statsTimerText.textContent = "0.000s";
+      
+      if (timerInterval) clearInterval(timerInterval);
+      startTime = performance.now();
+      timerInterval = setInterval(() => {
+        const elapsed = ((performance.now() - startTime) / 1000).toFixed(3);
+        statsTimerText.textContent = `${elapsed}s`;
+      }, 10);
+
       const formData = new FormData();
       formData.append("image", selectedFile);
 
@@ -925,9 +1046,31 @@
           headers: { "Content-Type": "multipart/form-data" },
         });
 
+        clearInterval(timerInterval);
+        const elapsed = ((performance.now() - startTime) / 1000).toFixed(3);
+        statsTimerText.textContent = `${elapsed}s`;
+        statsStatusText.textContent = "Status: Completed";
+
         hideStatus();
+        document.getElementById("radarScanning").classList.add("hidden");
+
+        // Swap TIFF placeholder for backend-generated query preview image if it exists
+        if (response.data.queryPreview) {
+          const tiffPlaceholder = document.getElementById("tiffPreviewPlaceholder");
+          if (tiffPlaceholder) tiffPlaceholder.classList.add("hidden");
+          localPreview.src = response.data.queryPreview;
+          localPreview.classList.remove("hidden");
+        }
+
         renderResults(response.data);
       } catch (err) {
+        clearInterval(timerInterval);
+        statsStatusText.textContent = "Status: Failed";
+
+        hideStatus();
+        document.getElementById("radarScanning").classList.add("hidden");
+        resultsPlaceholder.classList.remove("hidden");
+
         let msg = "Network error while connecting to search API.";
         if (err.response && err.response.data) {
           msg = err.response.data.error || err.response.data.message || msg;

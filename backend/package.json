@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "start": "node server.js"
+    "start": "node -e \"process.env.PYTHON='../venv/Scripts/python.exe'; require('./server.js')\""
   },
   "dependencies": {
     "cors": "^2.8.5",
