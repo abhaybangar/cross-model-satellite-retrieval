@@ -21,9 +21,11 @@ class ProjectionHead(torch.nn.Module):
         z = self.net(x)
         return torch.nn.functional.normalize(z, p=2, dim=-1)
 
-OPT_FOLDER = "dataset/optical"
-SAR_FOLDER = "dataset/sar"
-CACHE_PATH = "backend/cache/raw_dinov2_embeddings.npz"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+WORKSPACE = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
+OPT_FOLDER = os.path.join(WORKSPACE, "dataset", "optical")
+SAR_FOLDER = os.path.join(WORKSPACE, "dataset", "sar")
+CACHE_PATH = os.path.join(WORKSPACE, "backend", "cache", "raw_dinov2_embeddings.npz")
 
 opt_files = set(os.listdir(OPT_FOLDER))
 sar_files = set(os.listdir(SAR_FOLDER))
@@ -99,8 +101,8 @@ for normalize in [False, True]:
     print(f"Top-1: {(top1/total)*100:.2f}% | Top-3: {(top3/total)*100:.2f}% | Top-5: {(top5/total)*100:.2f}%")
 
 # 2. EVALUATE PROJECTION HEADS
-opt_proj_path = "backend/cache/opt_proj.pt"
-sar_proj_path = "backend/cache/sar_proj.pt"
+opt_proj_path = os.path.join(WORKSPACE, "backend", "cache", "opt_proj.pt")
+sar_proj_path = os.path.join(WORKSPACE, "backend", "cache", "sar_proj.pt")
 
 if os.path.exists(opt_proj_path) and os.path.exists(sar_proj_path):
     print("\n--- Evaluating PyTorch Projection Heads (InfoNCE Aligned) ---")

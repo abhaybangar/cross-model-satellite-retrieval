@@ -3,8 +3,10 @@ import numpy as np
 import tifffile
 from PIL import Image
 
-OPT_DIR = "dataset/optical"
-SAR_DIR = "dataset/sar"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+WORKSPACE = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
+OPT_DIR = os.path.join(WORKSPACE, "dataset", "optical")
+SAR_DIR = os.path.join(WORKSPACE, "dataset", "sar")
 
 def normalize_band(band, p_min=2, p_max=98):
     """Normalize a single band using percentiles to [0, 255] uint8."""

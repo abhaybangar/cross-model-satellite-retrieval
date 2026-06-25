@@ -7,7 +7,8 @@ import tifffile
 from PIL import Image
 
 # Paths
-WORKSPACE = r"c:\Users\banga\Desktop\ps_11_proto"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+WORKSPACE = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
 DATASET_DIR = os.path.join(WORKSPACE, "dataset")
 BACKUP_DIR = os.path.join(WORKSPACE, "dataset_original")
 KAGGLE_DATASET_ROOT = r"C:\Users\banga\.cache\kagglehub\datasets\narendraaironi\bigearthnet-14k\versions\1\BEN_14k"

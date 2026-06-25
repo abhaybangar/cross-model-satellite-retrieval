@@ -3,8 +3,10 @@ import numpy as np
 import tifffile
 from PIL import Image
 
-OPT_DIR = "dataset/train2/optical"
-SAR_DIR = "dataset/train2/sar"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+WORKSPACE = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
+OPT_DIR = os.path.join(WORKSPACE, "dataset", "test2", "optical")
+SAR_DIR = os.path.join(WORKSPACE, "dataset", "test2", "sar")
 
 def normalize_band(band, p_min=2, p_max=98):
     """Normalize a single band using percentiles to [0, 255] uint8."""
@@ -34,7 +36,7 @@ def convert_sar_file(path):
     Image.fromarray(rgb).save(path)
 
 def main():
-    print("Converting train2 optical files to standard RGB TIFFs...")
+    print("Converting test2 optical files to standard RGB TIFFs...")
     opt_files = [f for f in os.listdir(OPT_DIR) if f.endswith(".tif")]
     total = len(opt_files)
     for idx, filename in enumerate(opt_files):
@@ -43,10 +45,10 @@ def main():
             convert_optical_file(path)
         except Exception as e:
             print(f"Error converting optical {filename}: {e}")
-        if (idx + 1) % 200 == 0 or (idx + 1) == total:
+        if (idx + 1) % 50 == 0 or (idx + 1) == total:
             print(f"Optical progress: {idx + 1}/{total}")
 
-    print("\nConverting train2 SAR files to standard RGB TIFFs...")
+    print("\nConverting test2 SAR files to standard RGB TIFFs...")
     sar_files = [f for f in os.listdir(SAR_DIR) if f.endswith(".tif")]
     total = len(sar_files)
     for idx, filename in enumerate(sar_files):
@@ -55,10 +57,10 @@ def main():
             convert_sar_file(path)
         except Exception as e:
             print(f"Error converting SAR {filename}: {e}")
-        if (idx + 1) % 200 == 0 or (idx + 1) == total:
+        if (idx + 1) % 50 == 0 or (idx + 1) == total:
             print(f"SAR progress: {idx + 1}/{total}")
 
-    print("\nIn-place conversion of train2 dataset finished successfully!")
+    print("\nIn-place conversion of test2 dataset finished successfully!")
 
 if __name__ == "__main__":
     main()

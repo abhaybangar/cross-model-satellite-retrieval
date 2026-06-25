@@ -3,8 +3,10 @@ import numpy as np
 import tifffile
 from PIL import Image
 
-OPT_DIR = "dataset/test2/optical"
-SAR_DIR = "dataset/test2/sar"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+WORKSPACE = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
+OPT_DIR = os.path.join(WORKSPACE, "dataset", "test", "optical")
+SAR_DIR = os.path.join(WORKSPACE, "dataset", "test", "sar")
 
 def normalize_band(band, p_min=2, p_max=98):
     """Normalize a single band using percentiles to [0, 255] uint8."""
@@ -34,7 +36,7 @@ def convert_sar_file(path):
     Image.fromarray(rgb).save(path)
 
 def main():
-    print("Converting test2 optical files to standard RGB TIFFs...")
+    print("Converting test optical files to standard RGB TIFFs...")
     opt_files = [f for f in os.listdir(OPT_DIR) if f.endswith(".tif")]
     total = len(opt_files)
     for idx, filename in enumerate(opt_files):
@@ -46,7 +48,7 @@ def main():
         if (idx + 1) % 50 == 0 or (idx + 1) == total:
             print(f"Optical progress: {idx + 1}/{total}")
 
-    print("\nConverting test2 SAR files to standard RGB TIFFs...")
+    print("\nConverting test SAR files to standard RGB TIFFs...")
     sar_files = [f for f in os.listdir(SAR_DIR) if f.endswith(".tif")]
     total = len(sar_files)
     for idx, filename in enumerate(sar_files):
@@ -58,7 +60,7 @@ def main():
         if (idx + 1) % 50 == 0 or (idx + 1) == total:
             print(f"SAR progress: {idx + 1}/{total}")
 
-    print("\nIn-place conversion of test2 dataset finished successfully!")
+    print("\nIn-place conversion of test dataset finished successfully!")
 
 if __name__ == "__main__":
     main()

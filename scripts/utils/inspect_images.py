@@ -2,8 +2,10 @@ import os
 import numpy as np
 from PIL import Image
 
-OPT_FOLDER = "dataset/optical"
-SAR_FOLDER = "dataset/sar"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+WORKSPACE = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
+OPT_FOLDER = os.path.join(WORKSPACE, "dataset", "optical")
+SAR_FOLDER = os.path.join(WORKSPACE, "dataset", "sar")
 
 opt_files = os.listdir(OPT_FOLDER)
 sar_files = os.listdir(SAR_FOLDER)

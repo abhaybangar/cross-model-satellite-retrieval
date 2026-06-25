@@ -53,8 +53,10 @@
 
 import os
 
-opt_files = set(os.listdir("dataset/optical"))
-sar_files = set(os.listdir("dataset/sar"))
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+WORKSPACE = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
+opt_files = set(os.listdir(os.path.join(WORKSPACE, "dataset", "optical")))
+sar_files = set(os.listdir(os.path.join(WORKSPACE, "dataset", "sar")))
 
 common = opt_files.intersection(sar_files)
 

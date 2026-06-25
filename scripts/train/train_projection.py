@@ -7,7 +7,8 @@ from PIL import Image
 from transformers import AutoImageProcessor, AutoModel
 
 # Directories
-WORKSPACE = r"c:\Users\banga\Desktop\ps_11_proto"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+WORKSPACE = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
 OPT_DIR = os.path.join(WORKSPACE, "dataset", "optical")
 SAR_DIR = os.path.join(WORKSPACE, "dataset", "sar")
 CACHE_DIR = os.path.join(WORKSPACE, "backend", "cache")

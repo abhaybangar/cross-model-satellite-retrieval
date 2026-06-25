@@ -8,7 +8,8 @@ from PIL import Image
 from transformers import AutoImageProcessor, AutoModel
 
 # Paths
-WORKSPACE = r"c:\Users\banga\Desktop\ps_11_proto"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+WORKSPACE = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
 DATASET_DIR = os.path.join(WORKSPACE, "dataset")
 METADATA_CSV = os.path.join(DATASET_DIR, "test2_metadata.csv")
 CACHE_DIR = os.path.join(WORKSPACE, "backend", "cache")

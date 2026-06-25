@@ -12,8 +12,10 @@ print("Loading DINOv2...")
 processor = AutoImageProcessor.from_pretrained("facebook/dinov2-base")
 model = AutoModel.from_pretrained("facebook/dinov2-base")
 
-OPT_FOLDER = "dataset/optical"
-SAR_FOLDER = "dataset/sar"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+WORKSPACE = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
+OPT_FOLDER = os.path.join(WORKSPACE, "dataset", "optical")
+SAR_FOLDER = os.path.join(WORKSPACE, "dataset", "sar")
 
 # ==========================
 # FIND MATCHING FILES
