@@ -21,6 +21,36 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
 processor = AutoImageProcessor.from_pretrained("facebook/dinov2-base")
 model = AutoModel.from_pretrained("facebook/dinov2-base")
 
+class ProjectionHead(torch.nn.Module):
+    def __init__(self, input_dim=768, output_dim=256):
+        super().__init__()
+        self.net = torch.nn.Sequential(
+            torch.nn.Linear(input_dim, 512),
+            torch.nn.LayerNorm(512),
+            torch.nn.ReLU(),
+            torch.nn.Dropout(0.4),
+            torch.nn.Linear(512, output_dim)
+        )
+
+    def forward(self, x):
+        z = self.net(x)
+        return torch.nn.functional.normalize(z, p=2, dim=-1)
+
+# Load projection heads if they exist
+opt_proj = None
+sar_proj = None
+
+opt_proj_path = CACHE_DIR / "opt_proj.pt"
+sar_proj_path = CACHE_DIR / "sar_proj.pt"
+
+if opt_proj_path.exists() and sar_proj_path.exists():
+    opt_proj = ProjectionHead()
+    opt_proj.load_state_dict(torch.load(opt_proj_path, map_location="cpu"))
+    opt_proj.eval()
+
+    sar_proj = ProjectionHead()
+    sar_proj.load_state_dict(torch.load(sar_proj_path, map_location="cpu"))
+    sar_proj.eval()
 
 def build_gallery():
     image_paths = []
@@ -77,6 +107,13 @@ def compute_embedding(image_path: Path):
 
 
 def search_gallery(query_embedding, image_names, gallery_embeddings, top_k=5):
+    if opt_proj is not None and sar_proj is not None:
+        with torch.no_grad():
+            q_t = torch.tensor(query_embedding).reshape(1, -1)
+            g_t = torch.tensor(gallery_embeddings)
+            query_embedding = opt_proj(q_t).squeeze().numpy()
+            gallery_embeddings = sar_proj(g_t).numpy()
+
     query_norm = query_embedding / np.linalg.norm(query_embedding)
     gallery_norm = gallery_embeddings / np.linalg.norm(gallery_embeddings, axis=1, keepdims=True)
     scores = gallery_norm.dot(query_norm)
