@@ -1,0 +1,48 @@
+{
+    "mode_asis": {
+        "raw_accuracy": {
+            "top1": 0.3,
+            "top3": 0.6,
+            "top5": 0.7000000000000001,
+            "top10": 1.2,
+            "total_queries": 1000
+        },
+        "v1_projected_accuracy": {
+            "top1": 0.1,
+            "top3": 0.5,
+            "top5": 0.7000000000000001,
+            "top10": 1.2,
+            "total_queries": 1000
+        },
+        "v2_projected_accuracy": {
+            "top1": 0.2,
+            "top3": 0.6,
+            "top5": 0.7000000000000001,
+            "top10": 1.4000000000000001,
+            "total_queries": 1000
+        }
+    },
+    "mode_normalized": {
+        "raw_accuracy": {
+            "top1": 0.6,
+            "top3": 2.1999999999999997,
+            "top5": 2.7,
+            "top10": 5.1,
+            "total_queries": 1000
+        },
+        "v1_projected_accuracy": {
+            "top1": 9.6,
+            "top3": 20.599999999999998,
+            "top5": 26.8,
+            "top10": 36.8,
+            "total_queries": 1000
+        },
+        "v2_projected_accuracy": {
+            "top1": 4.9,
+            "top3": 11.3,
+            "top5": 16.400000000000002,
+            "top10": 24.4,
+            "total_queries": 1000
+        }
+    }
+}

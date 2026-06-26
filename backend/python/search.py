@@ -1,3 +1,7 @@
+import time
+import sys
+t_start = time.time()
+
 import argparse
 import json
 from pathlib import Path
@@ -5,6 +9,8 @@ from PIL import Image
 import numpy as np
 import torch
 from transformers import AutoImageProcessor, AutoModel, logging as transformers_logging
+
+t_import_end = time.time()
 
 transformers_logging.set_verbosity_error()
 
@@ -18,6 +24,7 @@ GALLERY_DIR = DATASET_ROOT / "sar" if (DATASET_ROOT / "sar").exists() else DATAS
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
 
+t_model_start = time.time()
 processor = AutoImageProcessor.from_pretrained("facebook/dinov2-base")
 model = AutoModel.from_pretrained("facebook/dinov2-base")
 
@@ -51,6 +58,7 @@ if opt_proj_path.exists() and sar_proj_path.exists():
     sar_proj = ProjectionHead()
     sar_proj.load_state_dict(torch.load(sar_proj_path, map_location="cpu"))
     sar_proj.eval()
+t_model_end = time.time()
 
 def build_gallery():
     image_paths = []
@@ -138,13 +146,43 @@ if __name__ == "__main__":
     if not query_path.exists():
         raise FileNotFoundError(f"Query image not found: {query_path}")
 
+    t_load_start = time.time()
     image_names, gallery_embeddings = load_gallery()
+    t_load_end = time.time()
+
+    t_embed_start = time.time()
     query_embedding = compute_embedding(query_path)
+    t_embed_end = time.time()
+
+    t_search_start = time.time()
     results = search_gallery(query_embedding, image_names, gallery_embeddings, top_k=args.top_k)
+    t_search_end = time.time()
+
+    t_end = time.time()
+
+    timings = {
+        "import_libraries": round(t_import_end - t_start, 4),
+        "load_models": round(t_model_end - t_model_start, 4),
+        "load_gallery": round(t_load_end - t_load_start, 4),
+        "compute_query_embedding": round(t_embed_end - t_embed_start, 4),
+        "search_gallery": round(t_search_end - t_search_start, 4),
+        "total_python": round(t_end - t_start, 4)
+    }
+
+    # Print to stderr for terminal visibility during standalone runs
+    sys.stderr.write("\n⏱️  [Python CLI] Query Timing Breakdown:\n")
+    sys.stderr.write(f"  - Import Libraries:          {timings['import_libraries']:.4f}s\n")
+    sys.stderr.write(f"  - Load Models:              {timings['load_models']:.4f}s\n")
+    sys.stderr.write(f"  - Load Gallery Embeddings:   {timings['load_gallery']:.4f}s\n")
+    sys.stderr.write(f"  - Query Feature Extraction:  {timings['compute_query_embedding']:.4f}s\n")
+    sys.stderr.write(f"  - Similarity Match & Rank:   {timings['search_gallery']:.4f}s\n")
+    sys.stderr.write(f"  -----------------------------------\n")
+    sys.stderr.write(f"  - Total Python Execution:    {timings['total_python']:.4f}s\n\n")
 
     payload = {
         "query": query_path.name,
         "gallery": str(GALLERY_DIR.relative_to(DATASET_ROOT)),
         "results": results,
+        "timings": timings,
     }
     print(json.dumps(payload))

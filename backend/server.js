@@ -43,49 +43,203 @@ if (mongoUri) {
   console.log("MONGO_URI is not set. MongoDB features are disabled.");
 }
 
-function parseJsonFromOutput(output) {
-  const start = output.indexOf("{");
-  const end = output.lastIndexOf("}");
-  if (start === -1 || end === -1) {
-    throw new Error("Could not parse JSON output from Python script.");
-  }
-  return JSON.parse(output.slice(start, end + 1));
+// Persistent FastAPI inference server process reference
+let uvicornProcess = null;
+
+function startFastApiServer() {
+  console.log("🚀 Spawning FastAPI inference server...");
+  const pythonScriptDir = path.join(__dirname, "python");
+  
+  const resolvedPython = path.resolve(__dirname, PYTHON_EXEC);
+  
+  // Start uvicorn python.inference_server:app --port 8000 --host 127.0.0.1
+  uvicornProcess = spawn(
+    resolvedPython,
+    ["-m", "uvicorn", "inference_server:app", "--port", "8000", "--host", "127.0.0.1"],
+    { cwd: pythonScriptDir }
+  );
+
+  uvicornProcess.stdout.on("data", (data) => {
+    process.stdout.write(`[FastAPI] ${data}`);
+  });
+
+  uvicornProcess.stderr.on("data", (data) => {
+    process.stderr.write(`[FastAPI] ${data}`);
+  });
+
+  uvicornProcess.on("close", (code) => {
+    console.log(`[FastAPI] Server process exited with code ${code}`);
+  });
 }
 
-app.post("/api/search", upload.single("image"), async (req, res) => {
+function cleanUp() {
+  if (uvicornProcess) {
+    console.log("🧹 Terminating FastAPI inference server...");
+    uvicornProcess.kill("SIGTERM");
+    uvicornProcess = null;
+  }
+}
+
+// Register lifecycle cleanup handlers to avoid orphaned python processes
+process.on("exit", cleanUp);
+process.on("SIGINT", () => {
+  cleanUp();
+  process.exit();
+});
+process.on("SIGTERM", () => {
+  cleanUp();
+  process.exit();
+});
+
+app.post("/api/preprocess", upload.single("image"), async (req, res) => {
+  const reqStart = performance.now();
   if (!req.file) {
-    return res.status(400).json({ error: "Upload an image file to search." });
+    return res.status(400).json({ error: "No image file provided for preprocessing." });
   }
 
-  const pythonScript = path.join(__dirname, "python", "search.py");
-  const child = spawn(PYTHON_EXEC, [pythonScript, "--query", req.file.path, "--top_k", "5"]);
+  try {
+    const fetchStart = performance.now();
+    
+    // Call FastAPI /preprocess
+    const response = await fetch("http://127.0.0.1:8000/preprocess", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        image_path: req.file.path
+      })
+    });
 
-  let stdout = "";
-  let stderr = "";
+    const fetchEnd = performance.now();
+    const networkTime = (fetchEnd - fetchStart) / 1000;
 
-  child.stdout.on("data", (chunk) => {
-    stdout += chunk.toString();
-  });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`FastAPI server returned ${response.status}: ${errorText}`);
+    }
 
-  child.stderr.on("data", (chunk) => {
-    stderr += chunk.toString();
-  });
+    const result = await response.json();
 
-  child.on("close", async (code) => {
-    try {
-      if (code !== 0) {
-        if (req.file && fs.existsSync(req.file.path)) {
-          fs.unlinkSync(req.file.path);
-        }
-        return res.status(500).json({ error: stderr || `Python script exited with code ${code}` });
-      }
+    // Convert query image to base64 preview if it is TIFF
+    const ext = path.extname(req.file.path).toLowerCase();
+    let queryPreview = null;
+    let tiffConversionTime = 0;
+    if (ext === ".tif" || ext === ".tiff") {
+      const convertStart = performance.now();
+      const uniqueName = `query_preview_${Date.now()}.png`;
+      const tempPath = path.join(tempDir, uniqueName);
+      
+      const pythonConvert = spawn(PYTHON_EXEC, [
+        "-c",
+        `
+from PIL import Image
+import sys
+try:
+    img = Image.open(sys.argv[1]).convert('RGB')
+    img.save(sys.argv[2], 'PNG')
+    print('OK')
+except Exception as e:
+    print(f'ERROR: {e}', file=sys.stderr)
+    sys.exit(1)
+`,
+        req.file.path,
+        tempPath,
+      ]);
+      
+      await new Promise((resolve) => {
+        pythonConvert.on("close", (convertCode) => {
+          if (convertCode === 0 && fs.existsSync(tempPath)) {
+            try {
+              const fileBuffer = fs.readFileSync(tempPath);
+              queryPreview = `data:image/png;base64,${fileBuffer.toString("base64")}`;
+              fs.unlinkSync(tempPath);
+            } catch (e) {
+              console.error("Read temp file error:", e);
+            }
+          }
+          resolve();
+        });
+      });
+      tiffConversionTime = (performance.now() - convertStart) / 1000;
+    }
 
-      const result = parseJsonFromOutput(stdout);
+    // Clean up temporary upload file once preprocessed & cached in Python memory
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
 
-      // Convert query image to base64 preview if it is TIFF
+    if (queryPreview) {
+      result.queryPreview = queryPreview;
+    }
+
+    const reqEnd = performance.now();
+    const totalApiTime = (reqEnd - reqStart) / 1000;
+
+    result.timings = {
+      ...result.timings,
+      node_network_request: parseFloat(networkTime.toFixed(4)),
+      tiff_conversion: parseFloat(tiffConversionTime.toFixed(4)),
+      total_api: parseFloat(totalApiTime.toFixed(4))
+    };
+
+    console.log("\n⏱️  [Express Server] Query Preprocessing Timing Breakdown:");
+    console.log(`  - Image Preprocessing:     ${(result.timings.image_preprocessing || 0).toFixed(4)}s`);
+    console.log(`  - Feature Extraction:      ${(result.timings.compute_query_embedding || 0).toFixed(4)}s`);
+    console.log(`  -----------------------------------`);
+    console.log(`  - Python Preprocess Total: ${(result.timings.total_python || 0).toFixed(4)}s`);
+    console.log(`  - Express Network Roundtrip: ${result.timings.node_network_request.toFixed(4)}s`);
+    if (tiffConversionTime > 0) {
+      console.log(`  - TIFF-to-PNG Conversion:    ${tiffConversionTime.toFixed(4)}s`);
+    }
+    console.log(`  -----------------------------------`);
+    console.log(`  - Total Backend Request Time: ${totalApiTime.toFixed(4)}s\n`);
+
+    return res.json(result);
+  } catch (error) {
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/search", upload.single("image"), async (req, res) => {
+  const reqStart = performance.now();
+  
+  try {
+    const fetchStart = performance.now();
+    const bodyPayload = { top_k: 5 };
+    if (req.file) {
+      bodyPayload.image_path = req.file.path;
+    }
+    
+    // Call the persistent FastAPI server search endpoint
+    const response = await fetch("http://127.0.0.1:8000/search", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(bodyPayload)
+    });
+
+    const fetchEnd = performance.now();
+    const networkTime = (fetchEnd - fetchStart) / 1000;
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`FastAPI server returned ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json();
+
+    // Convert query image to base64 preview if it is TIFF and we uploaded one
+    let queryPreview = null;
+    let tiffConversionTime = 0;
+    if (req.file) {
       const ext = path.extname(req.file.path).toLowerCase();
-      let queryPreview = null;
       if (ext === ".tif" || ext === ".tiff") {
+        const convertStart = performance.now();
         const uniqueName = `query_preview_${Date.now()}.png`;
         const tempPath = path.join(tempDir, uniqueName);
         
@@ -120,33 +274,60 @@ except Exception as e:
             resolve();
           });
         });
+        tiffConversionTime = (performance.now() - convertStart) / 1000;
       }
 
-      if (req.file && fs.existsSync(req.file.path)) {
+      if (fs.existsSync(req.file.path)) {
         fs.unlinkSync(req.file.path);
       }
-
-      if (queryPreview) {
-        result.queryPreview = queryPreview;
-      }
-
-      if (mongoose.connection.readyState === 1) {
-        const log = new QueryLog({
-          queryFilename: req.file.originalname,
-          results: result.results,
-        });
-        log.save().catch(() => {});
-      }
-
-      return res.json(result);
-    } catch (error) {
-      return res.status(500).json({
-        error: error.message,
-        stdout: stdout.trim(),
-        stderr: stderr.trim(),
-      });
     }
-  });
+
+    if (queryPreview) {
+      result.queryPreview = queryPreview;
+    }
+
+    if (mongoose.connection.readyState === 1) {
+      const log = new QueryLog({
+        queryFilename: result.query || "preprocessed_query",
+        results: result.results,
+      });
+      log.save().catch(() => {});
+    }
+
+    const reqEnd = performance.now();
+    const totalApiTime = (reqEnd - reqStart) / 1000;
+    
+    // Add additional timings to the response
+    result.timings = {
+      ...result.timings,
+      node_network_request: parseFloat(networkTime.toFixed(4)),
+      tiff_conversion: parseFloat(tiffConversionTime.toFixed(4)),
+      total_api: parseFloat(totalApiTime.toFixed(4))
+    };
+
+    console.log("\n⏱️  [Express Server] Query Search Timing Breakdown (FastAPI Active):");
+    console.log(`  - Image Preprocessing:     ${(result.timings.image_preprocessing || 0).toFixed(4)}s`);
+    console.log(`  - Feature Extraction:      ${(result.timings.compute_query_embedding || 0).toFixed(4)}s`);
+    console.log(`  - Projection Head:         ${(result.timings.projection_head || 0).toFixed(4)}s`);
+    console.log(`  - FAISS Search:            ${(result.timings.search_gallery || 0).toFixed(4)}s`);
+    console.log(`  -----------------------------------`);
+    console.log(`  - Python Inference Total:  ${(result.timings.total_python || 0).toFixed(4)}s`);
+    console.log(`  - Express Network Roundtrip: ${result.timings.node_network_request.toFixed(4)}s`);
+    if (tiffConversionTime > 0) {
+      console.log(`  - TIFF-to-PNG Conversion:    ${tiffConversionTime.toFixed(4)}s`);
+    }
+    console.log(`  -----------------------------------`);
+    console.log(`  - Total Backend Request Time: ${totalApiTime.toFixed(4)}s\n`);
+
+    return res.json(result);
+  } catch (error) {
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    return res.status(500).json({
+      error: error.message
+    });
+  }
 });
 
 app.get("/api/logs", async (req, res) => {
@@ -233,6 +414,10 @@ except Exception as e:
 
 app.listen(PORT, () => {
   console.log(`Backend is running on http://localhost:${PORT}`);
+  
+  // Start FastAPI inference server process
+  startFastApiServer();
+
   // Automatically open browser on startup
   const url = `http://localhost:${PORT}`;
   const startCmd = process.platform === "win32" ? `start ${url}` : process.platform === "darwin" ? `open ${url}` : `xdg-open ${url}`;

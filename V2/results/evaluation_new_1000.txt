@@ -1,0 +1,44 @@
+=== PIPELINE EVALUATION ON PREPROCESSED_1000 DATASET ===
+Total Images Evaluated: 1000
+
+========================================================
+MODE A: EVALUATION WITH RAW dB SAR IMAGES (NO SCALING)
+========================================================
+--- RAW DINOV2 EMBEDDINGS ---
+Top-1  Accuracy: 0.30%
+Top-3  Accuracy: 0.60%
+Top-5  Accuracy: 0.70%
+Top-10 Accuracy: 1.20%
+
+--- V1 PROJECTED EMBEDDINGS ---
+Top-1  Accuracy: 0.10%
+Top-3  Accuracy: 0.50%
+Top-5  Accuracy: 0.70%
+Top-10 Accuracy: 1.20%
+
+--- V2 PROJECTED EMBEDDINGS ---
+Top-1  Accuracy: 0.20%
+Top-3  Accuracy: 0.60%
+Top-5  Accuracy: 0.70%
+Top-10 Accuracy: 1.40%
+
+========================================================
+MODE B: EVALUATION WITH PERCENTILE-NORMALIZED SAR IMAGES
+========================================================
+--- RAW DINOV2 EMBEDDINGS ---
+Top-1  Accuracy: 0.60%
+Top-3  Accuracy: 2.20%
+Top-5  Accuracy: 2.70%
+Top-10 Accuracy: 5.10%
+
+--- V1 PROJECTED EMBEDDINGS ---
+Top-1  Accuracy: 9.60%
+Top-3  Accuracy: 20.60%
+Top-5  Accuracy: 26.80%
+Top-10 Accuracy: 36.80%
+
+--- V2 PROJECTED EMBEDDINGS ---
+Top-1  Accuracy: 4.90%
+Top-3  Accuracy: 11.30%
+Top-5  Accuracy: 16.40%
+Top-10 Accuracy: 24.40%

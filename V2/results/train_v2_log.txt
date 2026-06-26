@@ -1,0 +1,9 @@
+=== V2 PROJECTION HEAD TRAINING LOG ===
+Total Training Samples: 2000
+Train/Val Split: 1600 / 400
+Best Validation Top-1 Accuracy: 22.75%
+
+Final Accuracy on Full train2 Dataset:
+Top-1 Accuracy : 81.15%
+Top-3 Accuracy : 82.60%
+Top-5 Accuracy : 84.05%

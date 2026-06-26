@@ -63,38 +63,35 @@ header {
 .brand {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 1rem;
 }
 
-.brand-icon {
-  background: linear-gradient(135deg, var(--accent), #06b6d4);
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 0.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 0 15px var(--accent-glow);
-}
-
-.brand-icon i {
-  color: white;
-  font-size: 1.2rem;
+.brand-logo {
+  height: 3.2rem;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 0 8px rgba(254, 94, 3, 0.25));
 }
 
 .brand-text h1 {
-  font-size: 1.5rem;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  background: linear-gradient(to right, #ffffff, #d1d5db);
+  font-size: 1.8rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  background: linear-gradient(135deg, #fe5e03 0%, #3b82f6 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
-.brand-text p {
+.brand-text p.subtitle-logo {
   font-size: 0.85rem;
-  color: var(--text-secondary);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, #3b82f6 0%, #fe5e03 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .system-status {
@@ -360,6 +357,13 @@ header {
   background: var(--error-light);
   border: 1px solid rgba(239, 68, 68, 0.25);
   color: #fca5a5;
+}
+
+.status-msg.success {
+  display: flex;
+  background: var(--success-light);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: #a7f3d0;
 }
 
 .spinner {

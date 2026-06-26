@@ -1,0 +1,14 @@
+=== V2 PIPELINE EVALUATION ON TEST2 PAIRS ===
+Total Queries evaluated: 100
+
+--- RAW DINOV2 EMBEDDINGS (No projection) ---
+Top-1 Accuracy  : 9.00%
+Top-3 Accuracy  : 13.00%
+Top-5 Accuracy  : 18.00%
+Top-10 Accuracy : 22.00%
+
+--- PROJECTED DINOV2 EMBEDDINGS (V2 Projection Head) ---
+Top-1 Accuracy  : 34.00%
+Top-3 Accuracy  : 59.00%
+Top-5 Accuracy  : 69.00%
+Top-10 Accuracy : 82.00%

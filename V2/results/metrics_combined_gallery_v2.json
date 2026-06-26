@@ -1,0 +1,16 @@
+{
+    "raw_accuracy": {
+        "top1": 0.0,
+        "top3": 1.0,
+        "top4": 1.0,
+        "top10": 4.0,
+        "total_queries": 100
+    },
+    "projected_accuracy": {
+        "top1": 5.0,
+        "top3": 10.0,
+        "top4": 14.000000000000002,
+        "top10": 28.000000000000004,
+        "total_queries": 100
+    }
+}

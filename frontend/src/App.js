@@ -16,6 +16,10 @@ function App() {
   const [results, setResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
 
+  // Background Preprocessing State
+  const [isPreprocessing, setIsPreprocessing] = useState(false);
+  const [isPreprocessed, setIsPreprocessed] = useState(false);
+
   // Stats & Timer state
   const [showStats, setShowStats] = useState(false);
   const [statsStatus, setStatsStatus] = useState("Idle");
@@ -53,6 +57,39 @@ function App() {
     }
   };
 
+  const triggerPreprocessing = async (file) => {
+    setIsPreprocessing(true);
+    setIsPreprocessed(false);
+    setStatusMsg("Preprocessing image in background...");
+    setErrorMsg("");
+
+    const formData = new FormData();
+    formData.append("image", file);
+
+    try {
+      const response = await axios.post(`${API_BASE}/api/preprocess`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setIsPreprocessing(false);
+      setIsPreprocessed(true);
+      setStatusMsg("Preprocessing complete. Ready to retrieve.");
+      
+      if (response.data.queryPreview) {
+        setQueryPreviewUrl(response.data.queryPreview);
+      }
+    } catch (err) {
+      setIsPreprocessing(false);
+      let msg = "Error preprocessing query image.";
+      if (err.response && err.response.data) {
+        msg = err.response.data.error || err.response.data.message || msg;
+      } else if (err.message) {
+        msg = err.message;
+      }
+      setErrorMsg(msg);
+      setStatusMsg("");
+    }
+  };
+
   const handleFileSelect = (file) => {
     const isTiffFile =
       file.name.toLowerCase().endsWith(".tif") ||
@@ -85,6 +122,9 @@ function App() {
       };
       reader.readAsDataURL(file);
     }
+
+    // Trigger instant preprocessing in the background
+    triggerPreprocessing(file);
   };
 
   const triggerFileInput = () => {
@@ -114,6 +154,8 @@ function App() {
     setElapsedTime("0.000");
     setStatsStatus("Idle");
     setShowResults(false);
+    setIsPreprocessing(false);
+    setIsPreprocessed(false);
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
@@ -122,7 +164,12 @@ function App() {
   const executeSearch = async () => {
     if (!selectedFile) return;
 
-    setStatusMsg("Uploading query and searching SAR gallery...");
+    if (isPreprocessing) {
+      setStatusMsg("Still preprocessing query image in background. Please wait...");
+      return;
+    }
+
+    setStatusMsg("Searching SAR gallery using preprocessed query...");
     setIsSearching(true);
     setErrorMsg("");
     setShowResults(true);
@@ -139,13 +186,9 @@ function App() {
       setElapsedTime(elapsed);
     }, 10);
 
-    const formData = new FormData();
-    formData.append("image", selectedFile);
-
     try {
-      const response = await axios.post(`${API_BASE}/api/search`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      // Call search without image file payload to reuse the cached RAM embedding
+      const response = await axios.post(`${API_BASE}/api/search`);
 
       if (timerRef.current) clearInterval(timerRef.current);
       const finalTime = ((performance.now() - startTimeRef.current) / 1000).toFixed(3);
@@ -208,12 +251,10 @@ function App() {
       {/* Top Header */}
       <header>
         <div className="brand">
-          <div className="brand-icon">
-            <i className="fa-solid fa-satellite-dish"></i>
-          </div>
+          <img src="/logo.png" alt="DRISHTIKON Logo" className="brand-logo" />
           <div className="brand-text">
-            <h1>Optical-to-SAR Image Search</h1>
-            <p>DINOv2 Deep Feature Retrieval Engine</p>
+            <h1>DRISHTIKON</h1>
+            <p className="subtitle-logo">Cross-Model Retrieval</p>
           </div>
         </div>
 
@@ -307,8 +348,10 @@ function App() {
 
           {/* Status Messaging */}
           {statusMsg && (
-            <div className="status-msg loading" style={{ display: "flex" }}>
-              <div className="spinner"></div>
+            <div className={`status-msg ${statusMsg.includes("complete") ? "success" : statusMsg.includes("Error") || statusMsg.includes("failed") ? "error" : "loading"}`} style={{ display: "flex" }}>
+              {!statusMsg.includes("complete") && !statusMsg.includes("Error") && !statusMsg.includes("failed") && <div className="spinner"></div>}
+              {statusMsg.includes("complete") && <i className="fa-solid fa-circle-check" style={{ color: "var(--success)", fontSize: "1rem" }}></i>}
+              {statusMsg.includes("Error") || statusMsg.includes("failed") ? <i className="fa-solid fa-circle-exclamation"></i> : null}
               <span>{statusMsg}</span>
             </div>
           )}
