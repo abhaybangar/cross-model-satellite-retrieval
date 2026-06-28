@@ -10,7 +10,12 @@ const QueryLog = require("./models/QueryLog");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const PYTHON_EXEC = process.env.PYTHON || "python";
+const rawPython = process.env.PYTHON || "../venv/Scripts/python.exe";
+let resolvedPython = path.isAbsolute(rawPython) ? rawPython : path.resolve(__dirname, rawPython);
+if (!process.env.PYTHON && !fs.existsSync(resolvedPython)) {
+  resolvedPython = "python";
+}
+const PYTHON_EXEC = resolvedPython;
 const uploadDir = path.join(__dirname, "uploads");
 const datasetDir = path.join(__dirname, "..", "dataset");
 const tempDir = os.tmpdir();
@@ -50,11 +55,9 @@ function startFastApiServer() {
   console.log("🚀 Spawning FastAPI inference server...");
   const pythonScriptDir = path.join(__dirname, "python");
   
-  const resolvedPython = path.resolve(__dirname, PYTHON_EXEC);
-  
   // Start uvicorn python.inference_server:app --port 8000 --host 127.0.0.1
   uvicornProcess = spawn(
-    resolvedPython,
+    PYTHON_EXEC,
     ["-m", "uvicorn", "inference_server:app", "--port", "8000", "--host", "127.0.0.1"],
     { cwd: pythonScriptDir }
   );
@@ -93,8 +96,25 @@ process.on("SIGTERM", () => {
 
 app.post("/api/preprocess", upload.single("image"), async (req, res) => {
   const reqStart = performance.now();
-  if (!req.file) {
-    return res.status(400).json({ error: "No image file provided for preprocessing." });
+  
+  let imagePath = null;
+  let isUploaded = false;
+  
+  if (req.file) {
+    imagePath = req.file.path;
+    isUploaded = true;
+  } else if (req.body && req.body.image_path) {
+    let resolvedPath = req.body.image_path;
+    if (resolvedPath.startsWith("test2/optical/")) {
+      resolvedPath = resolvedPath.replace("test2/optical/", "optical/");
+    } else if (resolvedPath.startsWith("train2/optical/")) {
+      resolvedPath = resolvedPath.replace("train2/optical/", "train/optical/");
+    }
+    imagePath = path.join(datasetDir, resolvedPath);
+  }
+
+  if (!imagePath) {
+    return res.status(400).json({ error: "No image file or image path provided for preprocessing." });
   }
 
   try {
@@ -107,7 +127,7 @@ app.post("/api/preprocess", upload.single("image"), async (req, res) => {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        image_path: req.file.path
+        image_path: imagePath
       })
     });
 
@@ -122,7 +142,7 @@ app.post("/api/preprocess", upload.single("image"), async (req, res) => {
     const result = await response.json();
 
     // Convert query image to base64 preview if it is TIFF
-    const ext = path.extname(req.file.path).toLowerCase();
+    const ext = path.extname(imagePath).toLowerCase();
     let queryPreview = null;
     let tiffConversionTime = 0;
     if (ext === ".tif" || ext === ".tiff") {
@@ -143,7 +163,7 @@ except Exception as e:
     print(f'ERROR: {e}', file=sys.stderr)
     sys.exit(1)
 `,
-        req.file.path,
+        imagePath,
         tempPath,
       ]);
       
@@ -165,7 +185,7 @@ except Exception as e:
     }
 
     // Clean up temporary upload file once preprocessed & cached in Python memory
-    if (req.file && fs.existsSync(req.file.path)) {
+    if (isUploaded && req.file && fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
     }
 
@@ -197,7 +217,7 @@ except Exception as e:
 
     return res.json(result);
   } catch (error) {
-    if (req.file && fs.existsSync(req.file.path)) {
+    if (isUploaded && req.file && fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
     }
     return res.status(500).json({ error: error.message });
@@ -343,10 +363,41 @@ app.get("/api/status", (req, res) => {
   return res.json({ status: "ok", dataset: fs.existsSync(datasetDir) });
 });
 
+app.get("/api/test2-samples", (req, res) => {
+  const test2OpticalDir = path.join(datasetDir, "optical");
+  if (!fs.existsSync(test2OpticalDir)) {
+    return res.status(404).json({ error: "Optical folder not found" });
+  }
+
+  try {
+    const files = fs.readdirSync(test2OpticalDir)
+      .filter(file => {
+        const ext = path.extname(file).toLowerCase();
+        return ext === ".tif" || ext === ".tiff" || ext === ".png" || ext === ".jpg" || ext === ".jpeg";
+      })
+      .map(file => `optical/${file}`);
+    
+    return res.json(files);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 app.get("/image", (req, res) => {
-  const imagePath = req.query.path;
+  let imagePath = req.query.path;
   if (!imagePath) {
     return res.status(400).json({ error: "Missing path parameter" });
+  }
+
+  // Translate test2 and train2 preprocessed paths to raw folders
+  if (imagePath.startsWith("test2/optical/")) {
+    imagePath = imagePath.replace("test2/optical/", "optical/");
+  } else if (imagePath.startsWith("test2/sar/")) {
+    imagePath = imagePath.replace("test2/sar/", "sar/");
+  } else if (imagePath.startsWith("train2/optical/")) {
+    imagePath = imagePath.replace("train2/optical/", "train/optical/");
+  } else if (imagePath.startsWith("train2/sar/")) {
+    imagePath = imagePath.replace("train2/sar/", "train/sar/");
   }
 
   const fullPath = path.join(datasetDir, imagePath);

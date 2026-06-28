@@ -7,10 +7,10 @@
         "total_queries": 100
     },
     "projected_accuracy": {
-        "top1": 5.0,
-        "top3": 10.0,
-        "top4": 14.000000000000002,
-        "top10": 28.000000000000004,
+        "top1": 6.0,
+        "top3": 12.0,
+        "top4": 16.0,
+        "top10": 27.0,
         "total_queries": 100
     }
 }

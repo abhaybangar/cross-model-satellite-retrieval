@@ -1,14 +1,20 @@
 import time
-import sys
 t_start = time.time()
+import sys
+from pathlib import Path
+
+# Add project root to sys.path
+PROJECT_ROOT_DIR = Path(__file__).resolve().parent.parent.parent
+if str(PROJECT_ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT_DIR))
 
 import argparse
 import json
-from pathlib import Path
 from PIL import Image
 import numpy as np
 import torch
-from transformers import AutoImageProcessor, AutoModel, logging as transformers_logging
+from transformers import AutoModel, logging as transformers_logging
+from ben_preprocess import preprocess_optical, preprocess_sar
 
 t_import_end = time.time()
 
@@ -25,7 +31,6 @@ GALLERY_DIR = DATASET_ROOT / "sar" if (DATASET_ROOT / "sar").exists() else DATAS
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
 
 t_model_start = time.time()
-processor = AutoImageProcessor.from_pretrained("facebook/dinov2-base")
 model = AutoModel.from_pretrained("facebook/dinov2-base")
 
 class ProjectionHead(torch.nn.Module):
@@ -74,11 +79,12 @@ def build_gallery():
         raise RuntimeError(f"No gallery images found in {GALLERY_DIR}")
 
     embeddings = []
+    device = next(model.parameters()).device
     for image_path in image_paths:
-        image = Image.open(image_path).convert("RGB").resize((224, 224))
-        inputs = processor(images=image, return_tensors="pt")
+        sar_array = preprocess_sar(str(image_path))
+        pixel_values = torch.tensor(sar_array).unsqueeze(0).to(device)
         with torch.no_grad():
-            outputs = model(**inputs)
+            outputs = model(pixel_values=pixel_values)
         embedding = outputs.last_hidden_state.mean(dim=1).squeeze().cpu().numpy()
         embeddings.append(embedding.astype("float32"))
 
@@ -106,10 +112,11 @@ def load_gallery():
 
 
 def compute_embedding(image_path: Path):
-    image = Image.open(image_path).convert("RGB").resize((224, 224))
-    inputs = processor(images=image, return_tensors="pt")
+    opt_array = preprocess_optical(str(image_path))
+    device = next(model.parameters()).device
+    pixel_values = torch.tensor(opt_array).unsqueeze(0).to(device)
     with torch.no_grad():
-        outputs = model(**inputs)
+        outputs = model(pixel_values=pixel_values)
     embedding = outputs.last_hidden_state.mean(dim=1).squeeze().cpu().numpy().astype("float32")
     return embedding
 

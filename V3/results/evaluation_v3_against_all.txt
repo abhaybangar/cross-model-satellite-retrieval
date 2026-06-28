@@ -1,0 +1,14 @@
+=== V3 PIPELINE EVALUATION ON COMBINED V3 GALLERY ===
+Total Query Images: 100
+Total Gallery Images: 2100
+
+--- RAW REMOTECLIP EMBEDDINGS (No projection) ---
+Top-1 Accuracy  : 0.00%
+Top-3 Accuracy  : 0.00%
+Top-10 Accuracy : 1.00%
+
+--- PROJECTED REMOTECLIP EMBEDDINGS (V3 Projection Head) ---
+Top-1 Accuracy  : 2.00%
+Top-3 Accuracy  : 7.00%
+Top-5 Accuracy  : 13.00%
+Top-10 Accuracy : 18.00%

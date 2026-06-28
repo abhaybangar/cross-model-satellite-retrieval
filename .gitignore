@@ -12,3 +12,6 @@ __pycache__/
 embeddings.npy
 faiss_index.bin
 dataset/**/*
+
+# Checkpoints and models
+**/checkpoints/

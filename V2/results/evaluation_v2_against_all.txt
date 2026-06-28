@@ -9,7 +9,7 @@ Top-4 Accuracy  : 1.00%
 Top-10 Accuracy : 4.00%
 
 --- PROJECTED DINOV2 EMBEDDINGS (V2 Projection Head) ---
-Top-1 Accuracy  : 5.00%
-Top-3 Accuracy  : 10.00%
-Top-4 Accuracy  : 14.00%
-Top-10 Accuracy : 28.00%
+Top-1 Accuracy  : 6.00%
+Top-3 Accuracy  : 12.00%
+Top-4 Accuracy  : 16.00%
+Top-10 Accuracy : 27.00%

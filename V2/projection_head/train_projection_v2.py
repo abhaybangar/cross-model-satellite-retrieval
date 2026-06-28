@@ -1,11 +1,18 @@
 import os
+import sys
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from PIL import Image
-from transformers import AutoImageProcessor, AutoModel
+from transformers import AutoModel
+
+# Add project root to sys.path
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+WORKSPACE = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
+if WORKSPACE not in sys.path:
+    sys.path.insert(0, WORKSPACE)
+from ben_preprocess import preprocess_optical, preprocess_sar
 
 # Paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -64,7 +71,6 @@ def extract_train_embeddings():
     df = pd.read_csv(METADATA_CSV)
     
     print("Loading DINOv2 to extract V2 train embeddings...")
-    processor = AutoImageProcessor.from_pretrained("facebook/dinov2-base")
     model = AutoModel.from_pretrained("facebook/dinov2-base")
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -79,9 +85,8 @@ def extract_train_embeddings():
     print(f"Extracting embeddings for {total} V2 training pairs on {device}...")
     
     for idx, row in df.iterrows():
-        # Replace 'train/' with 'train2/' to point to the correct V2 preprocessed folder
-        opt_rel = row["optical_path"].replace("train/", "train2/")
-        sar_rel = row["sar_path"].replace("train/", "train2/")
+        opt_rel = row["optical_path"]
+        sar_rel = row["sar_path"]
         row_id = row["id"]
         
         opt_path = os.path.join(DATASET_DIR, opt_rel)
@@ -93,14 +98,14 @@ def extract_train_embeddings():
         try:
             with torch.no_grad():
                 # Process Optical
-                img_opt = Image.open(opt_path).convert("RGB").resize((224, 224))
-                inputs_opt = processor(images=img_opt, return_tensors="pt").to(device)
-                out_opt = model(**inputs_opt).last_hidden_state.mean(dim=1).cpu().numpy().squeeze()
+                opt_array = preprocess_optical(opt_path)
+                pixel_values_opt = torch.tensor(opt_array).unsqueeze(0).to(device)
+                out_opt = model(pixel_values=pixel_values_opt).last_hidden_state.mean(dim=1).cpu().numpy().squeeze()
                 
                 # Process SAR
-                img_sar = Image.open(sar_path).convert("RGB").resize((224, 224))
-                inputs_sar = processor(images=img_sar, return_tensors="pt").to(device)
-                out_sar = model(**inputs_sar).last_hidden_state.mean(dim=1).cpu().numpy().squeeze()
+                sar_array = preprocess_sar(sar_path)
+                pixel_values_sar = torch.tensor(sar_array).unsqueeze(0).to(device)
+                out_sar = model(pixel_values=pixel_values_sar).last_hidden_state.mean(dim=1).cpu().numpy().squeeze()
                 
                 opt_embeddings.append(out_opt)
                 sar_embeddings.append(out_sar)

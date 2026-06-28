@@ -1,0 +1,13 @@
+=== V3 PIPELINE EVALUATION ON TEST2 PAIRS ===
+Total Queries evaluated: 100
+
+--- RAW REMOTECLIP EMBEDDINGS (No projection) ---
+Top-1 Accuracy  : 0.00%
+Top-3 Accuracy  : 3.00%
+Top-10 Accuracy : 13.00%
+
+--- PROJECTED REMOTECLIP EMBEDDINGS (V3 Projection Head) ---
+Top-1 Accuracy  : 26.00%
+Top-3 Accuracy  : 45.00%
+Top-5 Accuracy  : 55.00%
+Top-10 Accuracy : 70.00%

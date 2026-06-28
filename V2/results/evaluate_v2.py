@@ -1,13 +1,19 @@
 import os
+import sys
 import json
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from PIL import Image
-from transformers import AutoImageProcessor, AutoModel
 import faiss
+
+# Add project root to sys.path
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+WORKSPACE = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
+if WORKSPACE not in sys.path:
+    sys.path.insert(0, WORKSPACE)
+from ben_preprocess import preprocess_optical, preprocess_sar
 
 # Paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -93,7 +99,7 @@ def main():
         filenames = list(data["filenames"])
     else:
         print("Loading DINOv2 model to extract test2 embeddings...")
-        processor = AutoImageProcessor.from_pretrained("facebook/dinov2-base")
+        from transformers import AutoModel
         model = AutoModel.from_pretrained("facebook/dinov2-base")
         
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -108,28 +114,33 @@ def main():
         print(f"Extracting DINOv2 embeddings for {total} test2 pairs on {device}...")
         
         for idx, row in df.iterrows():
-            # Replace 'test/' with 'test2/' to point to correct V2 folders
-            opt_rel = row["optical_path"].replace("test/", "test2/")
-            sar_rel = row["sar_path"].replace("test/", "test2/")
+            opt_rel = row["optical_path"]
+            sar_rel = row["sar_path"]
             row_id = row["id"]
             
             opt_path = os.path.join(DATASET_DIR, opt_rel)
             sar_path = os.path.join(DATASET_DIR, sar_rel)
             
+            # Fallback to root optical/sar directories for raw files if not found
+            if not os.path.exists(opt_path):
+                opt_path = os.path.join(DATASET_DIR, "optical", os.path.basename(opt_rel))
+            if not os.path.exists(sar_path):
+                sar_path = os.path.join(DATASET_DIR, "sar", os.path.basename(sar_rel))
+                
             if not os.path.exists(opt_path) or not os.path.exists(sar_path):
                 continue
                 
             try:
                 with torch.no_grad():
                     # Process Optical
-                    img_opt = Image.open(opt_path).convert("RGB").resize((224, 224))
-                    inputs_opt = processor(images=img_opt, return_tensors="pt").to(device)
-                    out_opt = model(**inputs_opt).last_hidden_state.mean(dim=1).cpu().numpy().squeeze()
+                    opt_array = preprocess_optical(opt_path)
+                    pixel_values_opt = torch.tensor(opt_array).unsqueeze(0).to(device)
+                    out_opt = model(pixel_values=pixel_values_opt).last_hidden_state.mean(dim=1).cpu().numpy().squeeze()
                     
                     # Process SAR
-                    img_sar = Image.open(sar_path).convert("RGB").resize((224, 224))
-                    inputs_sar = processor(images=img_sar, return_tensors="pt").to(device)
-                    out_sar = model(**inputs_sar).last_hidden_state.mean(dim=1).cpu().numpy().squeeze()
+                    sar_array = preprocess_sar(sar_path)
+                    pixel_values_sar = torch.tensor(sar_array).unsqueeze(0).to(device)
+                    out_sar = model(pixel_values=pixel_values_sar).last_hidden_state.mean(dim=1).cpu().numpy().squeeze()
                     
                     opt_embeddings.append(out_opt)
                     sar_embeddings.append(out_sar)

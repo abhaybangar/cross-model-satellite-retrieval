@@ -1,10 +1,16 @@
 import os
+import sys
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from PIL import Image
-from transformers import AutoImageProcessor, AutoModel
+
+# Add project root to sys.path
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+WORKSPACE = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
+if WORKSPACE not in sys.path:
+    sys.path.insert(0, WORKSPACE)
+from ben_preprocess import preprocess_optical, preprocess_sar
 
 # Paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -41,13 +47,17 @@ def calculate_accuracy(opt_feat, sar_feat, query_ids, gallery_ids):
         pred_indices = np.argsort(-scores[i])[:10]
         retrieved_ids = [gallery_ids[idx] for idx in pred_indices]
         
-        if q_id == retrieved_ids[0]:
+        # Match using basename (e.g. img_2001.tif)
+        q_base = os.path.basename(q_id)
+        retrieved_bases = [os.path.basename(r_id) for r_id in retrieved_ids]
+        
+        if q_base == retrieved_bases[0]:
             top1 += 1
-        if q_id in retrieved_ids[:3]:
+        if q_base in retrieved_bases[:3]:
             top3 += 1
-        if q_id in retrieved_ids[:4]:
+        if q_base in retrieved_bases[:4]:
             top4 += 1
-        if q_id in retrieved_ids[:10]:
+        if q_base in retrieved_bases[:10]:
             top10 += 1
             
     return top1/n * 100, top3/n * 100, top4/n * 100, top10/n * 100
@@ -66,26 +76,46 @@ def get_sar_files_from_folder(folder):
     return files
 
 def main():
-    print("Gathering gallery image paths from all datasets...")
-    # Combined gallery from train, train2, test, test2
-    folders = ["train", "train2", "test", "test2"]
+    print("Gathering gallery image paths from raw datasets (train, test, & sar)...")
     all_sar_items = []
-    for f in folders:
-        items = get_sar_files_from_folder(f)
-        all_sar_items.extend(items)
-        print(f" - Found {len(items)} SAR images in folder: {f}")
-        
-    print(f"Total Combined Search Gallery size: {len(all_sar_items)} SAR images.")
     
-    # test2 optical queries
-    test2_opt_dir = os.path.join(DATASET_DIR, "test2", "optical")
+    # train (img_0001 to img_1800)
+    train_items = []
+    train_sar_dir = os.path.join(DATASET_DIR, "train", "sar")
+    for f in sorted(os.listdir(train_sar_dir)):
+        if f.endswith(".tif"):
+            train_items.append((os.path.join(train_sar_dir, f), f"train/sar/{f}"))
+    all_sar_items.extend(train_items)
+    print(f" - Found {len(train_items)} SAR images in train/sar")
+    
+    # test (img_1801 to img_2000)
+    test_items = []
+    test_sar_dir = os.path.join(DATASET_DIR, "test", "sar")
+    for f in sorted(os.listdir(test_sar_dir)):
+        if f.endswith(".tif"):
+            test_items.append((os.path.join(test_sar_dir, f), f"test/sar/{f}"))
+    all_sar_items.extend(test_items)
+    print(f" - Found {len(test_items)} SAR images in test/sar")
+    
+    # sar (img_2001 to img_2100)
+    sar_items = []
+    sar_dir = os.path.join(DATASET_DIR, "sar")
+    for f in sorted(os.listdir(sar_dir)):
+        if f.endswith(".tif"):
+            sar_items.append((os.path.join(sar_dir, f), f"sar/{f}"))
+    all_sar_items.extend(sar_items)
+    print(f" - Found {len(sar_items)} SAR images in sar")
+    
+    print(f"Total V1 Combined Search Gallery size: {len(all_sar_items)} SAR images.")
+    
+    # test2 optical queries from raw optical/ folder
+    test2_opt_dir = os.path.join(DATASET_DIR, "optical")
     test2_queries = []
     for f in sorted(os.listdir(test2_opt_dir)):
         if f.endswith(".tif"):
-            # matching query id is 'test2/img_XXXX.tif' to match the gallery unique_id
-            test2_queries.append((os.path.join(test2_opt_dir, f), f"test2/{f}"))
+            test2_queries.append((os.path.join(test2_opt_dir, f), f"optical/{f}"))
             
-    print(f"Total Queries (test2 optical): {len(test2_queries)} images.")
+    print(f"Total V1 Queries (test2 optical): {len(test2_queries)} images.")
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
@@ -100,7 +130,7 @@ def main():
         gallery_ids = list(data["gallery_ids"])
     else:
         print("\nLoading DINOv2 model to extract embeddings...")
-        processor = AutoImageProcessor.from_pretrained("facebook/dinov2-base")
+        from transformers import AutoModel
         model = AutoModel.from_pretrained("facebook/dinov2-base").to(device)
         model.eval()
         
@@ -110,9 +140,9 @@ def main():
         print(f"\nExtracting optical query embeddings on {device}...")
         for idx, (path, q_id) in enumerate(test2_queries):
             with torch.no_grad():
-                img = Image.open(path).convert("RGB").resize((224, 224))
-                inputs = processor(images=img, return_tensors="pt").to(device)
-                emb = model(**inputs).last_hidden_state.mean(dim=1).squeeze().cpu().numpy()
+                opt_array = preprocess_optical(path)
+                pixel_values_opt = torch.tensor(opt_array).unsqueeze(0).to(device)
+                emb = model(pixel_values=pixel_values_opt).last_hidden_state.mean(dim=1).squeeze().cpu().numpy()
                 opt_embeddings.append(emb)
                 query_ids.append(q_id)
             if (idx + 1) % 50 == 0 or (idx + 1) == len(test2_queries):
@@ -124,9 +154,9 @@ def main():
         print(f"\nExtracting combined SAR gallery embeddings (this may take a few minutes) on {device}...")
         for idx, (path, g_id) in enumerate(all_sar_items):
             with torch.no_grad():
-                img = Image.open(path).convert("RGB").resize((224, 224))
-                inputs = processor(images=img, return_tensors="pt").to(device)
-                emb = model(**inputs).last_hidden_state.mean(dim=1).squeeze().cpu().numpy()
+                sar_array = preprocess_sar(path)
+                pixel_values_sar = torch.tensor(sar_array).unsqueeze(0).to(device)
+                emb = model(pixel_values=pixel_values_sar).last_hidden_state.mean(dim=1).squeeze().cpu().numpy()
                 sar_embeddings.append(emb)
                 gallery_ids.append(g_id)
             if (idx + 1) % 500 == 0 or (idx + 1) == len(all_sar_items):

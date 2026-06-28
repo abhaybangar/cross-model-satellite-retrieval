@@ -31,9 +31,37 @@ function App() {
   const [modalTitle, setModalTitle] = useState("");
   const [modalScore, setModalScore] = useState("");
 
+  // Sample images state
+  const [sampleImages, setSampleImages] = useState([]);
+  const [displayedSamples, setDisplayedSamples] = useState([]);
+
   const fileInputRef = useRef(null);
   const timerRef = useRef(null);
   const startTimeRef = useRef(null);
+
+  // Mount effect to fetch test2 samples
+  useEffect(() => {
+    const fetchSamples = async () => {
+      try {
+        const response = await axios.get(`${API_BASE}/api/test2-samples`);
+        if (Array.isArray(response.data) && response.data.length > 0) {
+          setSampleImages(response.data);
+          // Pick 5 random ones initially
+          const shuffled = [...response.data].sort(() => 0.5 - Math.random());
+          setDisplayedSamples(shuffled.slice(0, 5));
+        }
+      } catch (err) {
+        console.error("Failed to fetch sample images:", err);
+      }
+    };
+    fetchSamples();
+  }, []);
+
+  const handleShuffle = () => {
+    if (sampleImages.length === 0) return;
+    const shuffled = [...sampleImages].sort(() => 0.5 - Math.random());
+    setDisplayedSamples(shuffled.slice(0, 5));
+  };
 
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -63,13 +91,19 @@ function App() {
     setStatusMsg("Preprocessing image in background...");
     setErrorMsg("");
 
-    const formData = new FormData();
-    formData.append("image", file);
-
     try {
-      const response = await axios.post(`${API_BASE}/api/preprocess`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      let response;
+      if (file && file.isSample) {
+        response = await axios.post(`${API_BASE}/api/preprocess`, {
+          image_path: file.path
+        });
+      } else {
+        const formData = new FormData();
+        formData.append("image", file);
+        response = await axios.post(`${API_BASE}/api/preprocess`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      }
       setIsPreprocessing(false);
       setIsPreprocessed(true);
       setStatusMsg("Preprocessing complete. Ready to retrieve.");
@@ -125,6 +159,34 @@ function App() {
 
     // Trigger instant preprocessing in the background
     triggerPreprocessing(file);
+  };
+
+  const handleSelectSample = (samplePath) => {
+    const filename = samplePath.split("/").pop();
+    const isTiffFile = filename.toLowerCase().endsWith(".tif") || filename.toLowerCase().endsWith(".tiff");
+    
+    const sampleObj = {
+      name: filename,
+      path: samplePath,
+      isSample: true
+    };
+
+    setSelectedFile(sampleObj);
+    setIsTiff(isTiffFile);
+    setQueryPreviewUrl(null);
+    setErrorMsg("");
+    setStatusMsg("");
+    setShowStats(false);
+    setElapsedTime("0.000");
+    setStatsStatus("Idle");
+
+    if (isTiffFile) {
+      setLocalPreviewSrc("#");
+    } else {
+      setLocalPreviewSrc(`${API_BASE}/image?path=${encodeURIComponent(samplePath)}`);
+    }
+
+    triggerPreprocessing(sampleObj);
   };
 
   const triggerFileInput = () => {
@@ -426,7 +488,6 @@ function App() {
                       return (
                         <li key={item.filename} className="result-card">
                           <div className="card-rank">{index + 1}</div>
-                          <div className="card-score-badge">{scorePct}</div>
                           <div
                             className="card-img-wrapper"
                             onClick={() =>
@@ -460,6 +521,56 @@ function App() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Sample Test Queries Section */}
+      <div className="samples-panel">
+        <div className="samples-header">
+          <div className="panel-title" style={{ marginBottom: 0 }}>
+            <i className="fa-solid fa-images"></i>
+            <h2>Sample Test Queries</h2>
+          </div>
+          <button className="shuffle-btn" onClick={handleShuffle} disabled={sampleImages.length === 0}>
+            <i className="fa-solid fa-arrows-rotate"></i>
+            <span>Shuffle Samples</span>
+          </button>
+        </div>
+
+        {displayedSamples.length === 0 ? (
+          <div style={{ textAlign: "center", color: "var(--text-muted)", padding: "1rem" }}>
+            Loading sample queries...
+          </div>
+        ) : (
+          <ul className="samples-grid">
+            {displayedSamples.map((samplePath) => {
+              const filename = samplePath.split("/").pop();
+              const imageSrc = `${API_BASE}/image?path=${encodeURIComponent(samplePath)}`;
+              const isActive = selectedFile && selectedFile.isSample && selectedFile.path === samplePath;
+
+              return (
+                <li
+                  key={samplePath}
+                  className={`sample-card ${isActive ? "active" : ""}`}
+                  onClick={() => handleSelectSample(samplePath)}
+                >
+                  <div className="sample-card-img-wrapper">
+                    <img
+                      className="sample-card-img"
+                      src={imageSrc}
+                      alt={filename}
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className="sample-card-content">
+                    <span className="sample-card-title" title={filename}>
+                      {filename}
+                    </span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
 
       {/* High-resolution Image Modal */}

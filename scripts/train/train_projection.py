@@ -1,10 +1,16 @@
 import os
+import sys
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from PIL import Image
-from transformers import AutoImageProcessor, AutoModel
+
+# Add project root to sys.path
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+WORKSPACE = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
+if WORKSPACE not in sys.path:
+    sys.path.insert(0, WORKSPACE)
+from ben_preprocess import preprocess_optical, preprocess_sar
 
 # Directories
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -22,6 +28,7 @@ class ProjectionHead(nn.Module):
             nn.Linear(input_dim, 512),
             nn.LayerNorm(512),
             nn.ReLU(),
+            nn.Dropout(0.4),
             nn.Linear(512, output_dim)
         )
 
@@ -47,8 +54,8 @@ def extract_all_embeddings():
         data = np.load(emb_path)
         return data["opt"], data["sar"], data["filenames"]
         
-    print("Loading DINOv2 to extract embeddings...")
-    processor = AutoImageProcessor.from_pretrained("facebook/dinov2-base")
+    print("Loading DINOv2 model to extract embeddings...")
+    from transformers import AutoModel
     model = AutoModel.from_pretrained("facebook/dinov2-base")
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -64,24 +71,20 @@ def extract_all_embeddings():
     sar_embeddings = []
     
     for idx, filename in enumerate(matching_files):
-        # Optical image
         opt_path = os.path.join(OPT_DIR, filename)
-        opt_img = Image.open(opt_path).convert("RGB").resize((224, 224))
-        
-        # SAR image
         sar_path = os.path.join(SAR_DIR, filename)
-        sar_img = Image.open(sar_path).convert("RGB").resize((224, 224))
         
-        # Extractor
         with torch.no_grad():
             # Optical
-            inputs_opt = processor(images=opt_img, return_tensors="pt").to(device)
-            out_opt = model(**inputs_opt).last_hidden_state.mean(dim=1).cpu().numpy()
+            opt_array = preprocess_optical(opt_path)
+            pixel_values_opt = torch.tensor(opt_array).unsqueeze(0).to(device)
+            out_opt = model(pixel_values=pixel_values_opt).last_hidden_state.mean(dim=1).cpu().numpy()
             opt_embeddings.append(out_opt.squeeze())
             
             # SAR
-            inputs_sar = processor(images=sar_img, return_tensors="pt").to(device)
-            out_sar = model(**inputs_sar).last_hidden_state.mean(dim=1).cpu().numpy()
+            sar_array = preprocess_sar(sar_path)
+            pixel_values_sar = torch.tensor(sar_array).unsqueeze(0).to(device)
+            out_sar = model(pixel_values=pixel_values_sar).last_hidden_state.mean(dim=1).cpu().numpy()
             sar_embeddings.append(out_sar.squeeze())
             
         if (idx + 1) % 100 == 0 or (idx + 1) == len(matching_files):
