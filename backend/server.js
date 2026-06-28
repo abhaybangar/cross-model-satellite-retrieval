@@ -52,13 +52,23 @@ if (mongoUri) {
 let uvicornProcess = null;
 
 function startFastApiServer() {
-  console.log("🚀 Spawning FastAPI inference server...");
+  const version = (process.env.MODEL_VERSION || "V2").toUpperCase();
+  console.log(`🤖 Selected Model Version: ${version}`);
+  
+  let serverApp = "inference_server:app";
+  if (version === "V4") {
+    serverApp = "inference_server_remoteclip_lora:app";
+  } else if (version === "V5") {
+    serverApp = "inference_server_dinov2_lora:app";
+  }
+  
+  console.log(`🚀 Spawning FastAPI inference server with app '${serverApp}'...`);
   const pythonScriptDir = path.join(__dirname, "python");
   
   // Start uvicorn python.inference_server:app --port 8000 --host 127.0.0.1
   uvicornProcess = spawn(
     PYTHON_EXEC,
-    ["-m", "uvicorn", "inference_server:app", "--port", "8000", "--host", "127.0.0.1"],
+    ["-m", "uvicorn", serverApp, "--port", "8000", "--host", "127.0.0.1"],
     { cwd: pythonScriptDir }
   );
 
