@@ -1,0 +1,48 @@
+{
+    "retrieval_metrics": {
+        "recall_at_1": 0.38,
+        "recall_at_5": 0.75,
+        "recall_at_10": 0.84,
+        "precision_at_1": 0.38,
+        "precision_at_5": 0.15,
+        "precision_at_10": 0.08399999999999999,
+        "mAP": 0.5318237211795261,
+        "mrr": 0.5318237211795261,
+        "top_1_accuracy": 38.0,
+        "top_5_accuracy": 75.0,
+        "top_10_accuracy": 84.0,
+        "average_latency_ms": 211.17090300031123,
+        "latency_breakdown_ms": {
+            "preprocess": 5.906369000440463,
+            "dinov2_extraction": 204.77733599895146,
+            "projection": 0.42043900131830014,
+            "similarity_search": 0.06469100029789843
+        }
+    },
+    "binary_classification_metrics_optimal": {
+        "threshold": 0.5722898244857788,
+        "precision": 0.46153846153846156,
+        "recall": 0.36,
+        "f1_score": 0.4044943820224719,
+        "accuracy": 0.9894,
+        "confusion_matrix": {
+            "TP": 36,
+            "FP": 42,
+            "FN": 64,
+            "TN": 9858
+        }
+    },
+    "binary_classification_metrics_threshold_0.5": {
+        "threshold": 0.5,
+        "precision": 0.2717391304347826,
+        "recall": 0.5,
+        "f1_score": 0.352112676056338,
+        "accuracy": 0.9816,
+        "confusion_matrix": {
+            "TP": 50,
+            "FP": 134,
+            "FN": 50,
+            "TN": 9766
+        }
+    }
+}
