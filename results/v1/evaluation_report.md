@@ -28,6 +28,9 @@ The table below summarizes the retrieval metrics calculated over the 100 queries
 | **Precision@1** | 0.3800 | Average precision at rank 1 |
 | **Precision@5** | 0.1500 | Average precision at rank 5 |
 | **Precision@10** | 0.0840 | Average precision at rank 10 |
+| **F1-Score@1** | 0.3800 | Harmonic mean of Precision@1 and Recall@1 |
+| **F1-Score@5** | 0.2500 | Harmonic mean of Precision@5 and Recall@5 |
+| **F1-Score@10** | 0.1527 | Harmonic mean of Precision@10 and Recall@10 |
 | **Mean Average Precision (mAP)** | 0.5318 | Average Precision over all queries |
 | **Mean Reciprocal Rank (MRR)** | 0.5318 | Reciprocal rank of the first correct retrieval |
 | **Top-1 Accuracy** | 38.00% | Same as Recall@1 (1-to-1 retrieval) |
@@ -42,17 +45,17 @@ The table below summarizes the retrieval metrics calculated over the 100 queries
 
 *Measurements were performed on the hardware used for evaluation (Device: `CPU`).*
 
-* **Average Retrieval Latency (End-to-End)**: **211.17 ms** per query.
+* **Average Retrieval Latency (End-to-End)**: **202.86 ms** per query.
 
 ### Sub-step Latency Breakdown
 
 | Phase | Average Time (ms) | Percentage of Total |
 |---|---|---|
-| **Optical Preprocessing** | 5.91 ms | 2.8% |
-| **DINOv2 Feature Extraction** | 204.78 ms | 97.0% |
-| **Optical Projection Head** | 0.42 ms | 0.2% |
+| **Optical Preprocessing** | 3.47 ms | 1.7% |
+| **DINOv2 Feature Extraction** | 198.91 ms | 98.1% |
+| **Optical Projection Head** | 0.41 ms | 0.2% |
 | **Similarity Search & Ranking** | 0.06 ms | 0.0% |
-| **Total** | **211.17 ms** | **100.0%** |
+| **Total** | **202.86 ms** | **100.0%** |
 
 ---
 
@@ -108,6 +111,5 @@ Actual Non-Match         134             9766
 
 ## 4. Key Observations & Insights
 1. **Modality Matching Capability**: With the correct preprocessing (matching the V1 training pipeline), the model achieves a **Top-1 Accuracy of 38.0%**, **Top-5 Accuracy of 75.0%**, and a **Top-10 Accuracy of 84.0%** on the `test2` dataset. This is a massive improvement over the random chance baseline (1% Top-1) and indicates that the V1 model does possess a significant modality-alignment capacity.
-2. **Backbone Bottleneck**: Latency is heavily dominated by the **DINOv2 backbone feature extraction**, which accounts for **97.0%** of the total retrieval time (204.78 ms out of 211.17 ms). In contrast, the Projection Head and the Similarity Search are extremely lightweight, requiring less than 1ms combined.
+2. **Backbone Bottleneck**: Latency is heavily dominated by the **DINOv2 backbone feature extraction**, which accounts for **98.1%** of the total retrieval time (198.91 ms out of 202.86 ms). In contrast, the Projection Head and the Similarity Search are extremely lightweight, requiring less than 1ms combined.
 3. **Similarity Distribution and Thresholding**: The similarity scores are much better aligned when preprocessed correctly, centering between 0.3 and 0.6. At the default threshold of `0.5000`, the model achieves a pairwise F1-Score of `0.3521` (with 50 true positive matches and 134 false positives). Optimizing the threshold to `0.5723` reduces false positives to 42, which significantly improves the pairwise F1-Score to `0.4045`.
-

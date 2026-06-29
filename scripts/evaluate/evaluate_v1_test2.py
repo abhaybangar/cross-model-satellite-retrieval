@@ -221,6 +221,10 @@ def main():
     mAP = float(np.mean(1.0 / ranks))
     mrr = float(np.mean(1.0 / ranks))
     
+    f1_1 = float(2 * (precision_1 * recall_1) / (precision_1 + recall_1) if (precision_1 + recall_1) > 0 else 0.0)
+    f1_5 = float(2 * (precision_5 * recall_5) / (precision_5 + recall_5) if (precision_5 + recall_5) > 0 else 0.0)
+    f1_10 = float(2 * (precision_10 * recall_10) / (precision_10 + recall_10) if (precision_10 + recall_10) > 0 else 0.0)
+    
     top1_acc = float(recall_1 * 100.0)
     top5_acc = float(recall_5 * 100.0)
     top10_acc = float(recall_10 * 100.0)
@@ -298,6 +302,9 @@ def main():
             "precision_at_1": precision_1,
             "precision_at_5": precision_5,
             "precision_at_10": precision_10,
+            "f1_at_1": f1_1,
+            "f1_at_5": f1_5,
+            "f1_at_10": f1_10,
             "mAP": mAP,
             "mrr": mrr,
             "top_1_accuracy": top1_acc,
@@ -363,6 +370,9 @@ The table below summarizes the retrieval metrics calculated over the 100 queries
 | **Precision@1** | {precision_1:.4f} | Average precision at rank 1 |
 | **Precision@5** | {precision_5:.4f} | Average precision at rank 5 |
 | **Precision@10** | {precision_10:.4f} | Average precision at rank 10 |
+| **F1-Score@1** | {f1_1:.4f} | Harmonic mean of Precision@1 and Recall@1 |
+| **F1-Score@5** | {f1_5:.4f} | Harmonic mean of Precision@5 and Recall@5 |
+| **F1-Score@10** | {f1_10:.4f} | Harmonic mean of Precision@10 and Recall@10 |
 | **Mean Average Precision (mAP)** | {mAP:.4f} | Average Precision over all queries |
 | **Mean Reciprocal Rank (MRR)** | {mrr:.4f} | Reciprocal rank of the first correct retrieval |
 | **Top-1 Accuracy** | {top1_acc:.2f}% | Same as Recall@1 (1-to-1 retrieval) |

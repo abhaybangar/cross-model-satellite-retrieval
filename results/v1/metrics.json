@@ -6,17 +6,20 @@
         "precision_at_1": 0.38,
         "precision_at_5": 0.15,
         "precision_at_10": 0.08399999999999999,
+        "f1_at_1": 0.38,
+        "f1_at_5": 0.24999999999999997,
+        "f1_at_10": 0.1527272727272727,
         "mAP": 0.5318237211795261,
         "mrr": 0.5318237211795261,
         "top_1_accuracy": 38.0,
         "top_5_accuracy": 75.0,
         "top_10_accuracy": 84.0,
-        "average_latency_ms": 211.17090300031123,
+        "average_latency_ms": 202.86330900125904,
         "latency_breakdown_ms": {
-            "preprocess": 5.906369000440463,
-            "dinov2_extraction": 204.77733599895146,
-            "projection": 0.42043900131830014,
-            "similarity_search": 0.06469100029789843
+            "preprocess": 3.469800000311807,
+            "dinov2_extraction": 198.91382600049837,
+            "projection": 0.4136699992523063,
+            "similarity_search": 0.06411800131900236
         }
     },
     "binary_classification_metrics_optimal": {
