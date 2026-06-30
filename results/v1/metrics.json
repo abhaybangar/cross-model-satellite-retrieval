@@ -14,12 +14,12 @@
         "top_1_accuracy": 38.0,
         "top_5_accuracy": 75.0,
         "top_10_accuracy": 84.0,
-        "average_latency_ms": 202.86330900125904,
+        "average_latency_ms": 218.50158099958207,
         "latency_breakdown_ms": {
-            "preprocess": 3.469800000311807,
-            "dinov2_extraction": 198.91382600049837,
-            "projection": 0.4136699992523063,
-            "similarity_search": 0.06411800131900236
+            "preprocess": 4.424151000421261,
+            "dinov2_extraction": 213.57419600040885,
+            "projection": 0.4070570002659224,
+            "similarity_search": 0.09424899937584996
         }
     },
     "binary_classification_metrics_optimal": {

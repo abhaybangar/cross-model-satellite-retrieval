@@ -850,3 +850,262 @@ header {
 .sample-card:hover .sample-card-title {
   color: var(--text-primary);
 }
+
+/* Navigation Tabs */
+.nav-tabs {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.75rem;
+}
+
+.nav-tab-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all var(--transition-normal);
+}
+
+.nav-tab-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.nav-tab-btn.active {
+  color: white;
+  background: var(--accent);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+}
+
+/* About Page */
+.about-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+  animation: fadeIn 0.4s ease;
+}
+
+.about-header {
+  text-align: center;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.about-header h2 {
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 0.75rem;
+  background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.about-header p {
+  color: var(--text-secondary);
+  font-size: 1rem;
+}
+
+.about-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2.5rem;
+}
+
+@media (max-width: 900px) {
+  .about-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.about-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.about-card {
+  background: var(--card-bg);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  padding: 2rem;
+  box-shadow: var(--shadow-xl);
+  height: 100%;
+}
+
+.about-card h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.about-card h3 i {
+  color: var(--accent);
+}
+
+.about-card p {
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  margin-bottom: 1.25rem;
+}
+
+.about-card p:last-child {
+  margin-bottom: 0;
+}
+
+.about-card ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.about-card li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.about-card li i {
+  color: var(--success);
+  margin-top: 0.2rem;
+}
+
+.about-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.about-metric-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  text-align: center;
+}
+
+.about-metric-card .metric-val {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--success);
+  margin-bottom: 0.25rem;
+}
+
+.about-metric-card .metric-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Diagrams */
+.diagram-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  margin-top: 1rem;
+}
+
+.svg-content {
+  width: 100%;
+  max-width: 480px;
+  height: auto;
+}
+
+.svg-label {
+  font-size: 10px;
+  font-weight: 600;
+  fill: var(--text-secondary);
+}
+
+.svg-title {
+  font-size: 12px;
+  font-weight: 700;
+  fill: var(--text-primary);
+}
+
+.svg-arrow {
+  stroke: var(--text-muted);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+/* Scientific Formatting for Hackathon Dashboard */
+.math-block {
+  background: rgba(0, 0, 0, 0.4);
+  border-left: 3px solid var(--accent);
+  padding: 1.25rem;
+  border-radius: 0.5rem;
+  font-family: 'Cambria', 'Times New Roman', serif;
+  font-size: 1.05rem;
+  text-align: center;
+  margin: 1.25rem 0;
+  color: #e0e7ff;
+  line-height: 1.5;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.math-sub {
+  font-size: 0.75rem;
+  vertical-align: sub;
+}
+
+.math-sup {
+  font-size: 0.75rem;
+  vertical-align: super;
+}
+
+.physics-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.25rem;
+  margin-right: 0.5rem;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+}
+
+.physics-badge.optical {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.physics-badge.sar {
+  background: rgba(254, 94, 3, 0.15);
+  color: #ff8533;
+  border: 1px solid rgba(254, 94, 3, 0.3);
+}
+
+.badge-row {
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+

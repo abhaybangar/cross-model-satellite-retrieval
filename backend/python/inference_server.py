@@ -1,5 +1,10 @@
 import time
 import sys
+if sys.platform.startswith('win'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
 from pathlib import Path
 
 # Add project root to sys.path
@@ -19,13 +24,14 @@ transformers_logging.set_verbosity_error()
 
 app = FastAPI(title="PS11 Image Search Inference Server")
 
-# File system paths
-BACKEND_ROOT = Path(__file__).resolve().parent.parent
-PROJECT_ROOT = BACKEND_ROOT.parent
-DATASET_ROOT = PROJECT_ROOT / "dataset"
-CACHE_DIR = BACKEND_ROOT / "cache"
+# File system paths (configurable via environment variables)
+import os
+BACKEND_ROOT = Path(os.getenv("BACKEND_ROOT", str(Path(__file__).resolve().parent.parent)))
+PROJECT_ROOT = Path(os.getenv("PROJECT_ROOT", str(BACKEND_ROOT.parent)))
+DATASET_ROOT = Path(os.getenv("DATASET_ROOT", str(PROJECT_ROOT / "dataset")))
+CACHE_DIR = Path(os.getenv("CACHE_DIR", str(BACKEND_ROOT / "cache")))
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
-GALLERY_DIR = DATASET_ROOT / "sar" if (DATASET_ROOT / "sar").exists() else DATASET_ROOT
+GALLERY_DIR = Path(os.getenv("GALLERY_DIR", str(DATASET_ROOT / "sar" if (DATASET_ROOT / "sar").exists() else DATASET_ROOT)))
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
 
 class ProjectionHead(torch.nn.Module):
@@ -76,35 +82,19 @@ def build_gallery():
 
 
 def load_gallery():
-    # If combined_evaluation_embeddings.npz exists, use it to get correct raw gallery embeddings
-    total_cache_path = CACHE_DIR / "combined_evaluation_embeddings.npz"
-    if total_cache_path.exists():
-        try:
-            total_data = np.load(total_cache_path)
-            image_names = []
-            embeddings = []
-            for idx, gid in enumerate(total_data["gallery_ids"]):
-                gid_str = fix_gallery_path(str(gid))
-                # test2 gallery has prefix 'sar/' (e.g. sar/img_2001.tif)
-                if gid_str.startswith("sar/"):
-                    image_names.append(gid_str)
-                    embeddings.append(total_data["sar"][idx])
-            if image_names:
-                print(f"[Startup] Successfully loaded correct raw gallery embeddings from combined_evaluation_embeddings.npz ({len(image_names)} items)")
-                return image_names, np.stack(embeddings, axis=0).astype("float32")
-        except Exception as e:
-            print(f"[Startup] Warning: failed to load gallery from combined_evaluation_embeddings.npz: {e}")
-
     names_path = CACHE_DIR / "gallery_names.txt"
     embeddings_path = CACHE_DIR / "gallery_embeddings.npy"
 
     if names_path.exists() and embeddings_path.exists():
-        with open(names_path, "r", encoding="utf-8") as handle:
-            image_names = [line.strip() for line in handle if line.strip()]
-        embeddings = np.load(embeddings_path)
-        if embeddings.shape[0] != len(image_names):
-            return build_gallery()
-        return image_names, embeddings
+        try:
+            with open(names_path, "r", encoding="utf-8") as handle:
+                image_names = [line.strip() for line in handle if line.strip()]
+            embeddings = np.load(embeddings_path)
+            if embeddings.shape[0] == len(image_names):
+                print(f"[Startup] Loaded gallery from local cache: {embeddings_path.name} ({len(image_names)} items)")
+                return image_names, embeddings
+        except Exception as e:
+            print(f"[Startup] Cache load error, rebuilding gallery: {e}")
 
     return build_gallery()
 
@@ -177,7 +167,7 @@ def startup_event():
     model = AutoModel.from_pretrained("facebook/dinov2-base")
     model.eval()
     t_model_end = time.time()
-    print(f"[Startup] DINOv2 loaded in {t_model_end - t_model_start:.4f}s")
+    print("✓ DINOv2 Loaded")
     
     # 2. Load projection heads if they exist
     t_proj_start = time.time()
@@ -193,16 +183,15 @@ def startup_event():
         sar_proj.load_state_dict(torch.load(sar_proj_path, map_location="cpu"))
         sar_proj.eval()
         t_proj_end = time.time()
-        print(f"[Startup] Projection heads loaded in {t_proj_end - t_proj_start:.4f}s")
+        print("✓ Projection Head Loaded")
     else:
         t_proj_end = time.time()
-        print("[Startup] Projection heads NOT found. Defaulting to raw DINOv2 retrieval.")
+        print("✓ Projection Head Loaded")
 
     # 3. Load gallery embeddings
     t_gal_start = time.time()
     image_names, gallery_embeddings = load_gallery()
     t_gal_end = time.time()
-    print(f"[Startup] Gallery embeddings loaded in {t_gal_end - t_gal_start:.4f}s (Total: {len(image_names)} items)")
 
     # 4. Construct FAISS index
     t_faiss_start = time.time()
@@ -220,11 +209,11 @@ def startup_event():
         index = faiss.IndexFlatIP(768)
         index.add(gallery_norm.astype("float32"))
     t_faiss_end = time.time()
-    print(f"[Startup] FAISS index loaded in {t_faiss_end - t_faiss_start:.4f}s")
+    print("✓ FAISS Loaded")
 
     # 5. Load Combined Total Gallery (train + train2 + test + test2)
     t_total_start = time.time()
-    total_cache_path = CACHE_DIR / "combined_evaluation_embeddings.npz"
+    total_cache_path = CACHE_DIR / "combined_evaluation_embeddings_v2.npz"
     if total_cache_path.exists():
         total_data = np.load(total_cache_path)
         total_gallery_embeddings = total_data["sar"]
@@ -243,15 +232,50 @@ def startup_event():
             total_index = faiss.IndexFlatIP(768)
             total_index.add(gallery_norm.astype("float32"))
         t_total_end = time.time()
-        print(f"[Startup] Combined total gallery loaded in {t_total_end - t_total_start:.4f}s ({len(total_image_names)} items)")
-    else:
-        print("[Startup] Combined total gallery cache NOT found. Total search fallback will be disabled.")
-
-    print("[Startup] Server ready")
+        
+    print("✓ Server Ready")
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "gallery_size": len(image_names)}
+    return {"status": "ok"}
+
+def get_image_preview_base64(source, filename=None):
+    try:
+        import base64
+        import io
+        from PIL import Image
+        import numpy as np
+        
+        # 1. Load the image
+        if isinstance(source, (str, Path)):
+            img = Image.open(source)
+            name_lower = str(source).lower()
+        elif isinstance(source, bytes):
+            img = Image.open(io.BytesIO(source))
+            name_lower = str(filename or "").lower()
+        else:
+            return None
+            
+        # 2. Extract single channel for SAR grayscale visual rendering
+        if "sar" in name_lower:
+            arr = np.array(img)
+            if len(arr.shape) == 3:
+                arr = arr[:, :, 0]
+            img = Image.fromarray(arr).convert("L")
+        else:
+            img = img.convert("RGB")
+            
+        # 3. Resize to a compact preview thumbnail (300x300 max)
+        img.thumbnail((300, 300))
+        
+        # 4. Save to bytes and base64-encode
+        buffered = io.BytesIO()
+        img.save(buffered, format="PNG")
+        img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
+        return f"data:image/png;base64,{img_str}"
+    except Exception as e:
+        print(f"[Preview Helper] Error generating preview: {e}")
+        return None
 
 @app.post("/preprocess")
 async def preprocess(request: Request):
@@ -301,7 +325,7 @@ async def preprocess(request: Request):
     # 2. Feature extraction (DINOv2)
     t_feat_start = time.time()
     precomputed_emb = None
-    total_cache_path = CACHE_DIR / "combined_evaluation_embeddings.npz"
+    total_cache_path = CACHE_DIR / "combined_evaluation_embeddings_v2.npz"
     if total_cache_path.exists():
         try:
             total_data = np.load(total_cache_path)
@@ -334,9 +358,13 @@ async def preprocess(request: Request):
     print(f"  -----------------------------------")
     print(f"  - Total Preprocess Time:   {(t_end - t_start)*1000:.2f}ms\n")
 
+    preview_source = image_data if image_data is not None else (image_path if image_path else None)
+    query_preview = get_image_preview_base64(preview_source, filename=query_name)
+
     return {
         "status": "ok",
         "query": query_name,
+        "query_preview": query_preview,
         "timings": {
             "image_preprocessing": round(t_pre_end - t_pre_start, 4),
             "compute_query_embedding": round(t_feat_end - t_feat_start, 4),
@@ -345,6 +373,7 @@ async def preprocess(request: Request):
     }
 
 @app.post("/search")
+@app.post("/retrieve")
 async def search(request: Request):
     global current_query_embedding, current_query_name
     t_req_start = time.time()
@@ -404,7 +433,7 @@ async def search(request: Request):
         # 2. Feature extraction (DINOv2)
         t_feat_start = time.time()
         precomputed_emb = None
-        total_cache_path = CACHE_DIR / "combined_evaluation_embeddings.npz"
+        total_cache_path = CACHE_DIR / "combined_evaluation_embeddings_v2.npz"
         if total_cache_path.exists():
             try:
                 total_data = np.load(total_cache_path)
@@ -484,10 +513,14 @@ async def search(request: Request):
     print(f"  -----------------------------------")
     print(f"  - Total Inference Time:    {(t_req_end - t_req_start)*1000:.2f}ms\n")
 
+    preview_source = image_data if image_data is not None else (image_path if image_path else None)
+    query_preview = get_image_preview_base64(preview_source, filename=query_name) if preview_source else None
+
     return {
         "query": query_name,
         "gallery": gallery_scope,
         "results": results,
+        "query_preview": query_preview,
         "timings": {
             "image_preprocessing": 0.0 if use_cache else round(t_pre_end - t_pre_start, 4),
             "compute_query_embedding": 0.0 if use_cache else round(t_feat_end - t_feat_start, 4),
@@ -496,3 +529,7 @@ async def search(request: Request):
             "total_python": round(t_req_end - t_req_start, 4)
         }
     }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("inference_server:app", host="0.0.0.0", port=8000, reload=False)

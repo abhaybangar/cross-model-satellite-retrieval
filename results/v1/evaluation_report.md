@@ -45,17 +45,17 @@ The table below summarizes the retrieval metrics calculated over the 100 queries
 
 *Measurements were performed on the hardware used for evaluation (Device: `CPU`).*
 
-* **Average Retrieval Latency (End-to-End)**: **202.86 ms** per query.
+* **Average Retrieval Latency (End-to-End)**: **218.50 ms** per query.
 
 ### Sub-step Latency Breakdown
 
 | Phase | Average Time (ms) | Percentage of Total |
 |---|---|---|
-| **Optical Preprocessing** | 3.47 ms | 1.7% |
-| **DINOv2 Feature Extraction** | 198.91 ms | 98.1% |
+| **Optical Preprocessing** | 4.42 ms | 2.0% |
+| **DINOv2 Feature Extraction** | 213.57 ms | 97.7% |
 | **Optical Projection Head** | 0.41 ms | 0.2% |
-| **Similarity Search & Ranking** | 0.06 ms | 0.0% |
-| **Total** | **202.86 ms** | **100.0%** |
+| **Similarity Search & Ranking** | 0.09 ms | 0.0% |
+| **Total** | **218.50 ms** | **100.0%** |
 
 ---
 
@@ -111,5 +111,5 @@ Actual Non-Match         134             9766
 
 ## 4. Key Observations & Insights
 1. **Modality Matching Capability**: With the correct preprocessing (matching the V1 training pipeline), the model achieves a **Top-1 Accuracy of 38.0%**, **Top-5 Accuracy of 75.0%**, and a **Top-10 Accuracy of 84.0%** on the `test2` dataset. This is a massive improvement over the random chance baseline (1% Top-1) and indicates that the V1 model does possess a significant modality-alignment capacity.
-2. **Backbone Bottleneck**: Latency is heavily dominated by the **DINOv2 backbone feature extraction**, which accounts for **98.1%** of the total retrieval time (198.91 ms out of 202.86 ms). In contrast, the Projection Head and the Similarity Search are extremely lightweight, requiring less than 1ms combined.
+2. **Backbone Bottleneck**: Latency is heavily dominated by the **DINOv2 backbone feature extraction**, which accounts for **97.7%** of the total retrieval time (213.57 ms out of 218.50 ms). In contrast, the Projection Head and the Similarity Search are extremely lightweight, requiring less than 1ms combined.
 3. **Similarity Distribution and Thresholding**: The similarity scores are much better aligned when preprocessed correctly, centering between 0.3 and 0.6. At the default threshold of `0.5000`, the model achieves a pairwise F1-Score of `0.3521` (with 50 true positive matches and 134 false positives). Optimizing the threshold to `0.5723` reduces false positives to 42, which significantly improves the pairwise F1-Score to `0.4045`.

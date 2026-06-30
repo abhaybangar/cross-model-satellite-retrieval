@@ -52,6 +52,10 @@ if (mongoUri) {
 let uvicornProcess = null;
 
 function startFastApiServer() {
+  if (process.env.SPAWN_FASTAPI === "false") {
+    console.log("ℹ️ Spawning FastAPI inference server is disabled (SPAWN_FASTAPI = 'false').");
+    return;
+  }
   const version = (process.env.MODEL_VERSION || "V2").toUpperCase();
   console.log(`🤖 Selected Model Version: ${version}`);
   
@@ -129,9 +133,10 @@ app.post("/api/preprocess", upload.single("image"), async (req, res) => {
 
   try {
     const fetchStart = performance.now();
+    const FASTAPI_URL = process.env.FASTAPI_URL || "http://127.0.0.1:8000";
     
     // Call FastAPI /preprocess
-    const response = await fetch("http://127.0.0.1:8000/preprocess", {
+    const response = await fetch(`${FASTAPI_URL}/preprocess`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -153,9 +158,9 @@ app.post("/api/preprocess", upload.single("image"), async (req, res) => {
 
     // Convert query image to base64 preview if it is TIFF
     const ext = path.extname(imagePath).toLowerCase();
-    let queryPreview = null;
+    let queryPreview = result.query_preview || null;
     let tiffConversionTime = 0;
-    if (ext === ".tif" || ext === ".tiff") {
+    if (!queryPreview && (ext === ".tif" || ext === ".tiff")) {
       const convertStart = performance.now();
       const uniqueName = `query_preview_${Date.now()}.png`;
       const tempPath = path.join(tempDir, uniqueName);
@@ -166,7 +171,14 @@ app.post("/api/preprocess", upload.single("image"), async (req, res) => {
 from PIL import Image
 import sys
 try:
-    img = Image.open(sys.argv[1]).convert('RGB')
+    img = Image.open(sys.argv[1])
+    if 'sar' in sys.argv[1].lower():
+        if img.mode == 'RGB':
+            img = img.getchannel(0)
+        else:
+            img = img.convert('L')
+    else:
+        img = img.convert('RGB')
     img.save(sys.argv[2], 'PNG')
     print('OK')
 except Exception as e:
@@ -239,19 +251,39 @@ app.post("/api/search", upload.single("image"), async (req, res) => {
   
   try {
     const fetchStart = performance.now();
-    const bodyPayload = { top_k: 5 };
-    if (req.file) {
-      bodyPayload.image_path = req.file.path;
-    }
+    const FASTAPI_URL = process.env.FASTAPI_URL || "http://127.0.0.1:8000";
     
-    // Call the persistent FastAPI server search endpoint
-    const response = await fetch("http://127.0.0.1:8000/search", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(bodyPayload)
-    });
+    let response;
+    if (req.file) {
+      // Send the uploaded file as multipart/form-data using FormData and Blob (native Node 18)
+      const formData = new FormData();
+      formData.append("top_k", "5");
+      
+      const fileBuffer = fs.readFileSync(req.file.path);
+      const blob = new Blob([fileBuffer], { type: req.file.mimetype });
+      formData.append("file", blob, req.file.originalname);
+      
+      response = await fetch(`${FASTAPI_URL}/search`, {
+        method: "POST",
+        body: formData
+      });
+    } else {
+      // Send sample path in JSON
+      const bodyPayload = { top_k: 5 };
+      if (req.body.image_path) {
+        bodyPayload.image_path = req.body.image_path;
+      } else if (req.query.image_path) {
+        bodyPayload.image_path = req.query.image_path;
+      }
+      
+      response = await fetch(`${FASTAPI_URL}/search`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(bodyPayload)
+      });
+    }
 
     const fetchEnd = performance.now();
     const networkTime = (fetchEnd - fetchStart) / 1000;
@@ -264,9 +296,9 @@ app.post("/api/search", upload.single("image"), async (req, res) => {
     const result = await response.json();
 
     // Convert query image to base64 preview if it is TIFF and we uploaded one
-    let queryPreview = null;
+    let queryPreview = result.query_preview || null;
     let tiffConversionTime = 0;
-    if (req.file) {
+    if (!queryPreview && req.file) {
       const ext = path.extname(req.file.path).toLowerCase();
       if (ext === ".tif" || ext === ".tiff") {
         const convertStart = performance.now();
@@ -279,7 +311,14 @@ app.post("/api/search", upload.single("image"), async (req, res) => {
 from PIL import Image
 import sys
 try:
-    img = Image.open(sys.argv[1]).convert('RGB')
+    img = Image.open(sys.argv[1])
+    if 'sar' in sys.argv[1].lower():
+        if img.mode == 'RGB':
+            img = img.getchannel(0)
+        else:
+            img = img.convert('L')
+    else:
+        img = img.convert('RGB')
     img.save(sys.argv[2], 'PNG')
     print('OK')
 except Exception as e:
@@ -432,7 +471,14 @@ app.get("/image", (req, res) => {
 from PIL import Image
 import sys
 try:
-    img = Image.open(sys.argv[1]).convert('RGB')
+    img = Image.open(sys.argv[1])
+    if 'sar' in sys.argv[1].lower():
+        if img.mode == 'RGB':
+            img = img.getchannel(0)
+        else:
+            img = img.convert('L')
+    else:
+        img = img.convert('RGB')
     img.save(sys.argv[2], 'PNG')
     print('OK')
 except Exception as e:
@@ -479,10 +525,12 @@ app.listen(PORT, () => {
   // Start FastAPI inference server process
   startFastApiServer();
 
-  // Automatically open browser on startup
-  const url = `http://localhost:${PORT}`;
-  const startCmd = process.platform === "win32" ? `start ${url}` : process.platform === "darwin" ? `open ${url}` : `xdg-open ${url}`;
-  exec(startCmd, (err) => {
-    if (err) console.error("Failed to open browser:", err);
-  });
+  if (process.env.NODE_ENV !== "production") {
+    // Automatically open browser on startup
+    const url = `http://localhost:${PORT}`;
+    const startCmd = process.platform === "win32" ? `start ${url}` : process.platform === "darwin" ? `open ${url}` : `xdg-open ${url}`;
+    exec(startCmd, (err) => {
+      if (err) console.error("Failed to open browser:", err);
+    });
+  }
 });

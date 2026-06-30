@@ -120,7 +120,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # Check if cached combined embeddings exist
-    cache_path = os.path.join(CACHE_DIR, "combined_evaluation_embeddings.npz")
+    cache_path = os.path.join(CACHE_DIR, "combined_evaluation_embeddings_v2.npz")
     if os.path.exists(cache_path):
         print("\nLoading cached combined embeddings...")
         data = np.load(cache_path)
