@@ -395,7 +395,7 @@ app.get("/image", async (req, res) => {
     const fileBuffer = fs.readFileSync(fullPath);
     const formData = new FormData();
     const blob = new Blob([fileBuffer], { type: "image/tiff" });
-    formData.append("file", blob, path.basename(fullPath));
+    formData.append("file", blob, resolvedPath);
     
     const response = await fetch(`${FASTAPI_URL}/convert`, {
       method: "POST",
