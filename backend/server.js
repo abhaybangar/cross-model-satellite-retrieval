@@ -52,8 +52,8 @@ if (mongoUri) {
 let uvicornProcess = null;
 
 function startFastApiServer() {
-  if (process.env.SPAWN_FASTAPI === "false") {
-    console.log("ℹ️ Spawning FastAPI inference server is disabled (SPAWN_FASTAPI = 'false').");
+  if (process.env.SPAWN_FASTAPI === "false" || process.env.NODE_ENV === "production") {
+    console.log("ℹ️ Spawning FastAPI inference server is disabled.");
     return;
   }
   const version = (process.env.MODEL_VERSION || "V2").toUpperCase();
@@ -133,17 +133,34 @@ app.post("/api/preprocess", upload.single("image"), async (req, res) => {
 
   try {
     const fetchStart = performance.now();
-    const FASTAPI_URL = process.env.FASTAPI_URL || "http://127.0.0.1:8000";
+    let FASTAPI_URL = process.env.FASTAPI_URL || process.env.FAST_API_URL || process.env.FASTAPIURL || "http://127.0.0.1:8000";
+    if (FASTAPI_URL.endsWith("/")) FASTAPI_URL = FASTAPI_URL.slice(0, -1);
+    if (!FASTAPI_URL.startsWith("http://") && !FASTAPI_URL.startsWith("https://")) {
+      FASTAPI_URL = "https://" + FASTAPI_URL;
+    }
+    console.log("🔗 Connecting to FastAPI at:", `${FASTAPI_URL}/preprocess`);
     
-    // Call FastAPI /preprocess
-    const response = await fetch(`${FASTAPI_URL}/preprocess`, {
+    let response;
+    const formData = new FormData();
+    let fileBuffer;
+    let filename;
+    let mimetype = "image/tiff";
+
+    if (req.file) {
+      fileBuffer = fs.readFileSync(req.file.path);
+      filename = req.file.originalname;
+      mimetype = req.file.mimetype;
+    } else {
+      fileBuffer = fs.readFileSync(imagePath);
+      filename = path.basename(imagePath);
+    }
+
+    const blob = new Blob([fileBuffer], { type: mimetype });
+    formData.append("file", blob, filename);
+
+    response = await fetch(`${FASTAPI_URL}/preprocess`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        image_path: imagePath
-      })
+      body: formData
     });
 
     const fetchEnd = performance.now();
@@ -155,56 +172,8 @@ app.post("/api/preprocess", upload.single("image"), async (req, res) => {
     }
 
     const result = await response.json();
-
-    // Convert query image to base64 preview if it is TIFF
-    const ext = path.extname(imagePath).toLowerCase();
     let queryPreview = result.query_preview || null;
     let tiffConversionTime = 0;
-    if (!queryPreview && (ext === ".tif" || ext === ".tiff")) {
-      const convertStart = performance.now();
-      const uniqueName = `query_preview_${Date.now()}.png`;
-      const tempPath = path.join(tempDir, uniqueName);
-      
-      const pythonConvert = spawn(PYTHON_EXEC, [
-        "-c",
-        `
-from PIL import Image
-import sys
-try:
-    img = Image.open(sys.argv[1])
-    if 'sar' in sys.argv[1].lower():
-        if img.mode == 'RGB':
-            img = img.getchannel(0)
-        else:
-            img = img.convert('L')
-    else:
-        img = img.convert('RGB')
-    img.save(sys.argv[2], 'PNG')
-    print('OK')
-except Exception as e:
-    print(f'ERROR: {e}', file=sys.stderr)
-    sys.exit(1)
-`,
-        imagePath,
-        tempPath,
-      ]);
-      
-      await new Promise((resolve) => {
-        pythonConvert.on("close", (convertCode) => {
-          if (convertCode === 0 && fs.existsSync(tempPath)) {
-            try {
-              const fileBuffer = fs.readFileSync(tempPath);
-              queryPreview = `data:image/png;base64,${fileBuffer.toString("base64")}`;
-              fs.unlinkSync(tempPath);
-            } catch (e) {
-              console.error("Read temp file error:", e);
-            }
-          }
-          resolve();
-        });
-      });
-      tiffConversionTime = (performance.now() - convertStart) / 1000;
-    }
 
     // Clean up temporary upload file once preprocessed & cached in Python memory
     if (isUploaded && req.file && fs.existsSync(req.file.path)) {
@@ -239,6 +208,7 @@ except Exception as e:
 
     return res.json(result);
   } catch (error) {
+    console.error("❌ Preprocess API Error:", error);
     if (isUploaded && req.file && fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
     }
@@ -251,37 +221,65 @@ app.post("/api/search", upload.single("image"), async (req, res) => {
   
   try {
     const fetchStart = performance.now();
-    const FASTAPI_URL = process.env.FASTAPI_URL || "http://127.0.0.1:8000";
+    let FASTAPI_URL = process.env.FASTAPI_URL || process.env.FAST_API_URL || process.env.FASTAPIURL || "http://127.0.0.1:8000";
+    if (FASTAPI_URL.endsWith("/")) FASTAPI_URL = FASTAPI_URL.slice(0, -1);
+    if (!FASTAPI_URL.startsWith("http://") && !FASTAPI_URL.startsWith("https://")) {
+      FASTAPI_URL = "https://" + FASTAPI_URL;
+    }
+    console.log("🔗 Connecting to FastAPI at:", `${FASTAPI_URL}/search`);
     
     let response;
-    if (req.file) {
-      // Send the uploaded file as multipart/form-data using FormData and Blob (native Node 18)
-      const formData = new FormData();
-      formData.append("top_k", "5");
-      
-      const fileBuffer = fs.readFileSync(req.file.path);
-      const blob = new Blob([fileBuffer], { type: req.file.mimetype });
-      formData.append("file", blob, req.file.originalname);
-      
+    const formData = new FormData();
+    formData.append("top_k", String(req.body.top_k || req.query.top_k || 5));
+
+    let imagePath = null;
+    if (req.body.image_path) {
+      let resolvedPath = req.body.image_path;
+      if (resolvedPath.startsWith("test2/optical/")) {
+        resolvedPath = resolvedPath.replace("test2/optical/", "optical/");
+      } else if (resolvedPath.startsWith("train2/optical/")) {
+        resolvedPath = resolvedPath.replace("train2/optical/", "train/optical/");
+      }
+      imagePath = path.join(datasetDir, resolvedPath);
+    } else if (req.query.image_path) {
+      let resolvedPath = req.query.image_path;
+      if (resolvedPath.startsWith("test2/optical/")) {
+        resolvedPath = resolvedPath.replace("test2/optical/", "optical/");
+      } else if (resolvedPath.startsWith("train2/optical/")) {
+        resolvedPath = resolvedPath.replace("train2/optical/", "train/optical/");
+      }
+      imagePath = path.join(datasetDir, resolvedPath);
+    }
+
+    if (req.file || (imagePath && fs.existsSync(imagePath))) {
+      let fileBuffer;
+      let filename;
+      let mimetype = "image/tiff";
+
+      if (req.file) {
+        fileBuffer = fs.readFileSync(req.file.path);
+        filename = req.file.originalname;
+        mimetype = req.file.mimetype;
+      } else {
+        fileBuffer = fs.readFileSync(imagePath);
+        filename = path.basename(imagePath);
+      }
+
+      const blob = new Blob([fileBuffer], { type: mimetype });
+      formData.append("file", blob, filename);
+
       response = await fetch(`${FASTAPI_URL}/search`, {
         method: "POST",
         body: formData
       });
     } else {
-      // Send sample path in JSON
-      const bodyPayload = { top_k: 5 };
-      if (req.body.image_path) {
-        bodyPayload.image_path = req.body.image_path;
-      } else if (req.query.image_path) {
-        bodyPayload.image_path = req.query.image_path;
-      }
-      
+      // Fallback: search using cache without image data if no local file exists
       response = await fetch(`${FASTAPI_URL}/search`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify(bodyPayload)
+        body: JSON.stringify({ top_k: req.body.top_k || req.query.top_k || 5 })
       });
     }
 
@@ -294,61 +292,11 @@ app.post("/api/search", upload.single("image"), async (req, res) => {
     }
 
     const result = await response.json();
-
-    // Convert query image to base64 preview if it is TIFF and we uploaded one
     let queryPreview = result.query_preview || null;
     let tiffConversionTime = 0;
-    if (!queryPreview && req.file) {
-      const ext = path.extname(req.file.path).toLowerCase();
-      if (ext === ".tif" || ext === ".tiff") {
-        const convertStart = performance.now();
-        const uniqueName = `query_preview_${Date.now()}.png`;
-        const tempPath = path.join(tempDir, uniqueName);
-        
-        const pythonConvert = spawn(PYTHON_EXEC, [
-          "-c",
-          `
-from PIL import Image
-import sys
-try:
-    img = Image.open(sys.argv[1])
-    if 'sar' in sys.argv[1].lower():
-        if img.mode == 'RGB':
-            img = img.getchannel(0)
-        else:
-            img = img.convert('L')
-    else:
-        img = img.convert('RGB')
-    img.save(sys.argv[2], 'PNG')
-    print('OK')
-except Exception as e:
-    print(f'ERROR: {e}', file=sys.stderr)
-    sys.exit(1)
-`,
-          req.file.path,
-          tempPath,
-        ]);
-        
-        await new Promise((resolve) => {
-          pythonConvert.on("close", (convertCode) => {
-            if (convertCode === 0 && fs.existsSync(tempPath)) {
-              try {
-                const fileBuffer = fs.readFileSync(tempPath);
-                queryPreview = `data:image/png;base64,${fileBuffer.toString("base64")}`;
-                fs.unlinkSync(tempPath);
-              } catch (e) {
-                console.error("Read temp file error:", e);
-              }
-            }
-            resolve();
-          });
-        });
-        tiffConversionTime = (performance.now() - convertStart) / 1000;
-      }
 
-      if (fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
     }
 
     if (queryPreview) {
@@ -390,6 +338,7 @@ except Exception as e:
 
     return res.json(result);
   } catch (error) {
+    console.error("❌ Search API Error:", error);
     if (req.file && fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
     }

@@ -12,7 +12,6 @@ Dependencies: rasterio, numpy, scipy
 """
 
 import numpy as np
-import rasterio
 from scipy.ndimage import zoom as _scipy_zoom
 
 # ── Constants ────────────────────────────────────────────────────────
@@ -32,6 +31,7 @@ TARGET_SIZE = 224
 
 def inspect_tiff(path: str) -> dict:
     """Return band count, shape, dtype, CRS, and per-band statistics."""
+    import rasterio
     with rasterio.open(path) as src:
         data = src.read()
         info = {
@@ -92,6 +92,7 @@ def preprocess_optical(
                 arr = (arr - mean) / std
             return arr
         except Exception:
+            import rasterio
             with rasterio.open(source) as src:
                 data = src.read()
     else:
@@ -141,6 +142,7 @@ def preprocess_sar(
         except Exception:
             pass
             
+        import rasterio
         with rasterio.open(source) as src:
             data = src.read()
     else:
