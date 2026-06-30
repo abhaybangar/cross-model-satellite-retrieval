@@ -19,9 +19,13 @@ const PYTHON_EXEC = resolvedPython;
 const uploadDir = path.join(__dirname, "uploads");
 const datasetDir = path.join(__dirname, "..", "dataset");
 const tempDir = os.tmpdir();
+const previewsDir = path.join(__dirname, "previews");
 
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
+}
+if (!fs.existsSync(previewsDir)) {
+  fs.mkdirSync(previewsDir, { recursive: true });
 }
 
 app.use(cors());
@@ -345,6 +349,75 @@ app.post("/api/search", upload.single("image"), async (req, res) => {
     return res.status(500).json({
       error: error.message
     });
+  }
+});
+
+app.get("/image", async (req, res) => {
+  try {
+    const relativePath = req.query.path;
+    if (!relativePath) {
+      return res.status(400).json({ error: "Missing path parameter" });
+    }
+    
+    // Resolve absolute path in dataset
+    let resolvedPath = relativePath;
+    if (resolvedPath.startsWith("test2/optical/")) {
+      resolvedPath = resolvedPath.replace("test2/optical/", "optical/");
+    } else if (resolvedPath.startsWith("train2/optical/")) {
+      resolvedPath = resolvedPath.replace("train2/optical/", "train/optical/");
+    }
+    const fullPath = path.join(datasetDir, resolvedPath);
+    
+    if (!fs.existsSync(fullPath)) {
+      return res.status(404).json({ error: "File not found" });
+    }
+    
+    const ext = path.extname(fullPath).toLowerCase();
+    if (ext !== ".tif" && ext !== ".tiff") {
+      return res.sendFile(fullPath);
+    }
+    
+    // Check if preview is cached on disk
+    const cacheFilename = resolvedPath.replace(/\//g, "_") + ".png";
+    const cachePath = path.join(previewsDir, cacheFilename);
+    
+    if (fs.existsSync(cachePath)) {
+      return res.sendFile(cachePath);
+    }
+    
+    // Convert via FastAPI
+    let FASTAPI_URL = process.env.FASTAPI_URL || process.env.FAST_API_URL || process.env.FASTAPIURL || "http://127.0.0.1:8000";
+    if (FASTAPI_URL.endsWith("/")) FASTAPI_URL = FASTAPI_URL.slice(0, -1);
+    if (!FASTAPI_URL.startsWith("http://") && !FASTAPI_URL.startsWith("https://")) {
+      FASTAPI_URL = "https://" + FASTAPI_URL;
+    }
+    
+    const fileBuffer = fs.readFileSync(fullPath);
+    const formData = new FormData();
+    const blob = new Blob([fileBuffer], { type: "image/tiff" });
+    formData.append("file", blob, path.basename(fullPath));
+    
+    const response = await fetch(`${FASTAPI_URL}/convert`, {
+      method: "POST",
+      body: formData
+    });
+    
+    if (!response.ok) {
+      throw new Error(`FastAPI conversion failed with status ${response.status}`);
+    }
+    
+    const arrayBuffer = await response.arrayBuffer();
+    const pngBuffer = Buffer.from(arrayBuffer);
+    
+    // Save to cache
+    fs.writeFileSync(cachePath, pngBuffer);
+    
+    res.set("Content-Type", "image/png");
+    return res.send(pngBuffer);
+    
+  } catch (error) {
+    console.error("❌ Image retrieval error:", error);
+    return res.status(500).json({ error: error.message });
   }
 });
 
